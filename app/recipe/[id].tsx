@@ -19,6 +19,9 @@ import { Image } from 'expo-image';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as Speech from 'expo-speech';
 import StepAnimation, { getTechnique } from '@/components/StepAnimation';
+import IngredientChips from '@/components/IngredientChips';
+import IngredientIcon from '@/components/IngredientIcon';
+import { detectStepIngredients, cleanIngredientName } from '@/lib/ingredient-utils';
 import {
   RED,
   scaleIngredients,
@@ -195,6 +198,24 @@ export default function RecipeDetailScreen() {
 
   const activeStep = parsedSteps[currentStep];
   const technique = activeStep ? getTechnique(activeStep.text) : 'general';
+
+  const englishSteps = recipe.steps ? parseSteps(recipe.steps) : [];
+  const englishIngredientNames = recipe.ingredients
+    ? recipe.ingredients.split(',').map((s) => s.trim()).filter(Boolean)
+    : [];
+  const kmIngredientNames = recipe.ingredients_km
+    ? recipe.ingredients_km.split(',').map((s) => s.trim()).filter(Boolean)
+    : [];
+  const englishActiveStep = englishSteps[currentStep];
+  const stepIngredientMatches = englishActiveStep
+    ? detectStepIngredients(englishActiveStep.text, englishIngredientNames)
+    : [];
+  const stepIngredients = stepIngredientMatches.map((m) => {
+    if (isKhmer && kmIngredientNames[m.listIndex]) {
+      return cleanIngredientName(kmIngredientNames[m.listIndex]);
+    }
+    return m.name;
+  });
   const techniqueTip = isKhmer ? TECHNIQUE_TIPS_KM[technique] : TECHNIQUE_TIPS[technique];
   const donenessCue = activeStep ? getDonenessCue(activeStep.text) : null;
   const stepDuration = activeStep && activeStep.minutes.length > 0 ? formatDuration(activeStep.minutes[0]) : null;
@@ -357,14 +378,15 @@ export default function RecipeDetailScreen() {
               </View>
               {scaledIngredients.map((ing, i) => (
                 <TouchableOpacity key={i} style={styles.ingredientRow} onPress={() => toggleIngredient(i)} activeOpacity={0.6}>
-                  <View style={[styles.checkbox, checkedIngredients.has(i) && styles.checkboxChecked]}>
-                    {checkedIngredients.has(i) && <Ionicons name="checkmark" size={12} color="#fff" />}
-                  </View>
+                  <IngredientIcon name={ing} size={36} />
                   <Text style={[
                     styles.ingredientText,
                     { color: colors.subtext },
                     checkedIngredients.has(i) && styles.ingredientTextChecked,
                   ]}>{ing}</Text>
+                  <View style={[styles.checkbox, checkedIngredients.has(i) && styles.checkboxChecked]}>
+                    {checkedIngredients.has(i) && <Ionicons name="checkmark" size={12} color="#fff" />}
+                  </View>
                 </TouchableOpacity>
               ))}
             </View>
@@ -384,7 +406,9 @@ export default function RecipeDetailScreen() {
                   )}
                 </View>
 
-                <StepAnimation technique={technique} />
+                  <StepAnimation technique={technique} />
+
+                  <IngredientChips ingredients={stepIngredients} />
 
                 <Text style={[styles.stepText, { color: colors.text }]}>
                   {highlightSegments.map((seg, i) => (
