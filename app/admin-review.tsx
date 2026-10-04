@@ -12,7 +12,8 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Image } from 'expo-image';
-import { useRouter, useFocusEffect } from 'expo-router';
+import { useRouter, useFocusEffect, useLocalSearchParams } from 'expo-router';
+import { useTranslation } from 'react-i18next';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { apiFetch } from '@/lib/api-fetch';
 import { useTheme } from '@/lib/theme-context';
@@ -21,14 +22,15 @@ import { useSession } from '@/lib/supabase';
 const RED = '#D62828';
 const ADMIN_EMAIL = 'feihengkimborat@gmail.com';
 
-const REJECTION_REASONS = [
-  'Wrong or misleading food name',
-  "Photo doesn't match the recipe",
-  'Ingredients list is incomplete or unclear',
-  'Steps are too vague or missing',
-  'Inappropriate or low-quality content',
-  'Other',
-];
+const REJECTION_REASON_KEYS = [
+  'wrong_name',
+  'photo_mismatch',
+  'incomplete_ingredients',
+  'vague_steps',
+  'inappropriate',
+  'duplicate',
+  'other',
+] as const;
 
 type RecipeItem = {
   id: string;
@@ -45,50 +47,111 @@ type RecipeItem = {
   chef_name: string | null;
   created_at: string;
   status?: 'pending' | 'approved' | 'rejected';
+  // Closest recipes from other chefs, any overlap at all; possible_matches is
+  // the subset that crossed the server's copy threshold.
+  similar_recipes?: SimilarMatch[];
+  possible_matches?: SimilarMatch[];
+};
+
+type SimilarMatch = {
+  id: string;
+  title: string;
+  chef_name: string | null;
+  created_at: string;
+  score: number;
+};
+
+type ReportedRecipeItem = {
+  id: string;
+  title: string;
+  image_url: string | null;
+  is_free: boolean;
+  price_usd: number | string | null;
+  status: 'pending' | 'approved' | 'rejected';
+  chef_name: string | null;
+  report_count: number | string;
+  last_reported_at: string;
+  latest_reason: string | null;
+  reasons: string[];
+};
+
+type DeletedRecipeItem = {
+  id: string;
+  title: string;
+  image_url: string | null;
+  is_free: boolean;
+  price_usd: number | string | null;
+  rejection_reason: string | null;
+  deleted_at: string;
+  chef_name: string | null;
+  restore_window_days: number;
 };
 
 function statusColor(status?: string) {
   if (status === 'approved') return '#2E7D32';
   if (status === 'rejected') return '#8B1A1A';
+  if (status === 'deleted') return '#555';
   return '#B36B00';
 }
 
-function statusLabel(status?: string) {
-  if (status === 'approved') return 'Approved';
-  if (status === 'rejected') return 'Rejected';
-  return 'Pending';
+function daysLeft(deletedAt: string, windowDays: number): number {
+  const purgeAt = new Date(deletedAt).getTime() + windowDays * 24 * 60 * 60 * 1000;
+  return Math.max(0, Math.ceil((purgeAt - Date.now()) / (24 * 60 * 60 * 1000)));
 }
 
 export default function AdminReviewScreen() {
   const router = useRouter();
+  const { tab } = useLocalSearchParams<{ tab?: string }>();
   const { colors } = useTheme();
   const insets = useSafeAreaInsets();
   const { data: session } = useSession();
+  const { t } = useTranslation();
 
-  const [activeTab, setActiveTab] = useState<'pending' | 'all'>('pending');
+  const statusLabel = (status?: string) => {
+    if (status === 'approved') return t('admin_review_screen.status_approved');
+    if (status === 'rejected') return t('admin_review_screen.status_rejected');
+    if (status === 'deleted') return t('admin_review_screen.status_deleted');
+    return t('admin_review_screen.status_pending');
+  };
+
+  const [activeTab, setActiveTab] = useState<'pending' | 'all' | 'reports' | 'deleted'>(tab === 'reports' ? 'reports' : 'pending');
   const [pendingRecipes, setPendingRecipes] = useState<RecipeItem[]>([]);
   const [allRecipes, setAllRecipes] = useState<RecipeItem[]>([]);
+  const [reportedRecipes, setReportedRecipes] = useState<ReportedRecipeItem[]>([]);
+  const [deletedRecipes, setDeletedRecipes] = useState<DeletedRecipeItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [actingId, setActingId] = useState<string | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [restoringId, setRestoringId] = useState<string | null>(null);
+  const [dismissingId, setDismissingId] = useState<string | null>(null);
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [rejectModalId, setRejectModalId] = useState<string | null>(null);
-  const [selectedReason, setSelectedReason] = useState<string | null>(null);
+  const [selectedReasonKey, setSelectedReasonKey] = useState<(typeof REJECTION_REASON_KEYS)[number] | null>(null);
   const [customReason, setCustomReason] = useState('');
+  const [deleteModalRecipe, setDeleteModalRecipe] = useState<{ id: string; status?: string } | null>(null);
+  const [deleteReason, setDeleteReason] = useState('');
 
   const fetchAllData = useCallback(async () => {
     try {
-      const [pendingRes, allRes] = await Promise.all([
+      const [pendingRes, allRes, reportedRes, deletedRes] = await Promise.all([
         apiFetch('/api/admin/pending-recipes'),
         apiFetch('/api/admin/all-recipes'),
+        apiFetch('/api/admin/reported-recipes'),
+        apiFetch('/api/admin/deleted-recipes'),
       ]);
       const pendingData = await pendingRes.json();
       const allData = await allRes.json();
+      const reportedData = await reportedRes.json();
+      const deletedData = await deletedRes.json();
       setPendingRecipes(Array.isArray(pendingData) ? pendingData : []);
       setAllRecipes(Array.isArray(allData) ? allData : []);
+      setReportedRecipes(Array.isArray(reportedData) ? reportedData : []);
+      setDeletedRecipes(Array.isArray(deletedData) ? deletedData : []);
     } catch {
       setPendingRecipes([]);
       setAllRecipes([]);
+      setReportedRecipes([]);
+      setDeletedRecipes([]);
     } finally {
       setLoading(false);
     }
@@ -108,29 +171,34 @@ export default function AdminReviewScreen() {
         body: JSON.stringify({ action, reason }),
       });
       if (!res.ok) {
-        Alert.alert('Failed', 'Could not update this recipe. Please try again.');
+        Alert.alert(t('common.failed'), t('admin_review_screen.update_failed'));
         return;
       }
       setPendingRecipes((prev) => prev.filter((r) => r.id !== id));
       fetchAllData();
     } catch {
-      Alert.alert('Failed', 'Please check your connection and try again.');
+      Alert.alert(t('common.failed'), t('common.connection_error'));
     } finally {
       setActingId(null);
     }
   };
 
   const openRejectModal = (id: string) => {
-    setSelectedReason(null);
+    setSelectedReasonKey(null);
     setCustomReason('');
     setRejectModalId(id);
   };
 
   const confirmReject = () => {
     if (!rejectModalId) return;
-    const finalReason = selectedReason === 'Other' ? customReason.trim() : selectedReason;
+    const finalReason =
+      selectedReasonKey === 'other'
+        ? customReason.trim()
+        : selectedReasonKey
+          ? t(`admin_review_screen.reasons.${selectedReasonKey}`)
+          : null;
     if (!finalReason) {
-      Alert.alert('Select a reason', 'Please choose or write a reason before rejecting.');
+      Alert.alert(t('admin_review_screen.select_reason_title'), t('admin_review_screen.select_reason_message'));
       return;
     }
     const id = rejectModalId;
@@ -138,35 +206,74 @@ export default function AdminReviewScreen() {
     handleReview(id, 'reject', finalReason);
   };
 
-  const runDelete = async (id: string) => {
+  // Deleting now asks for a reason and soft-deletes (see delete+api.ts) so
+  // the chef can be told why and the recipe can still be restored within
+  // the grace window instead of vanishing without explanation.
+  const openDeleteModal = (recipe: { id: string; status?: string; latest_reason?: string | null }) => {
+    setDeleteReason(recipe.latest_reason ?? '');
+    setDeleteModalRecipe({ id: recipe.id, status: recipe.status });
+  };
+
+  const confirmDelete = async () => {
+    if (!deleteModalRecipe) return;
+    if (!deleteReason.trim()) {
+      Alert.alert(t('admin_review_screen.select_reason_title'), t('admin_review_screen.delete_reason_required_message'));
+      return;
+    }
+    const id = deleteModalRecipe.id;
     setDeletingId(id);
     try {
-      const res = await apiFetch(`/api/admin/recipes/${id}/delete`, { method: 'POST' });
+      const res = await apiFetch(`/api/admin/recipes/${id}/delete`, {
+        method: 'POST',
+        body: JSON.stringify({ reason: deleteReason.trim() }),
+      });
       if (!res.ok) {
-        Alert.alert('Failed', 'Could not delete this recipe. Please try again.');
+        Alert.alert(t('common.failed'), t('admin_review_screen.delete_failed'));
         return;
       }
       setAllRecipes((prev) => prev.filter((r) => r.id !== id));
       setPendingRecipes((prev) => prev.filter((r) => r.id !== id));
+      setReportedRecipes((prev) => prev.filter((r) => r.id !== id));
+      setDeleteModalRecipe(null);
+      fetchAllData();
     } catch {
-      Alert.alert('Failed', 'Please check your connection and try again.');
+      Alert.alert(t('common.failed'), t('common.connection_error'));
     } finally {
       setDeletingId(null);
     }
   };
 
-  const handleDeletePress = (recipe: RecipeItem) => {
-    const isApproved = recipe.status === 'approved';
-    Alert.alert(
-      'Delete this recipe?',
-      isApproved
-        ? 'This recipe is live and may already be purchased or favorited by users. Deleting it will permanently remove those records too. This cannot be undone.'
-        : 'This will permanently delete this recipe. This cannot be undone.',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        { text: 'Delete', style: 'destructive', onPress: () => runDelete(recipe.id) },
-      ]
-    );
+  const runRestore = async (id: string) => {
+    setRestoringId(id);
+    try {
+      const res = await apiFetch(`/api/admin/recipes/${id}/restore`, { method: 'POST' });
+      if (!res.ok) {
+        Alert.alert(t('common.failed'), t('admin_review_screen.restore_failed'));
+        return;
+      }
+      setDeletedRecipes((prev) => prev.filter((r) => r.id !== id));
+      fetchAllData();
+    } catch {
+      Alert.alert(t('common.failed'), t('common.connection_error'));
+    } finally {
+      setRestoringId(null);
+    }
+  };
+
+  const runDismissReport = async (recipeId: string) => {
+    setDismissingId(recipeId);
+    try {
+      const res = await apiFetch(`/api/admin/reports/${recipeId}/dismiss`, { method: 'POST' });
+      if (!res.ok) {
+        Alert.alert(t('common.failed'), t('admin_review_screen.update_failed'));
+        return;
+      }
+      setReportedRecipes((prev) => prev.filter((r) => r.id !== recipeId));
+    } catch {
+      Alert.alert(t('common.failed'), t('common.connection_error'));
+    } finally {
+      setDismissingId(null);
+    }
   };
 
   if (session && session.user.email !== ADMIN_EMAIL) {
@@ -174,10 +281,10 @@ export default function AdminReviewScreen() {
       <View style={[styles.center, { backgroundColor: colors.background }]}>
         <Ionicons name="lock-closed-outline" size={40} color={colors.subtext} />
         <Text style={[styles.deniedText, { color: colors.subtext }]}>
-          You don't have access to this screen.
+          {t('admin_review_screen.no_access')}
         </Text>
         <TouchableOpacity onPress={() => router.back()} style={styles.deniedBtn}>
-          <Text style={styles.deniedBtnText}>Go Back</Text>
+          <Text style={styles.deniedBtnText}>{t('admin_review_screen.go_back')}</Text>
         </TouchableOpacity>
       </View>
     );
@@ -203,7 +310,7 @@ export default function AdminReviewScreen() {
         <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
           <Ionicons name="chevron-back" size={24} color={colors.text} />
         </TouchableOpacity>
-        <Text style={[styles.headerTitle, { color: colors.text }]}>Review Recipes</Text>
+        <Text style={[styles.headerTitle, { color: colors.text }]}>{t('admin_review_screen.title')}</Text>
         <View style={{ width: 40 }} />
       </View>
 
@@ -214,7 +321,7 @@ export default function AdminReviewScreen() {
           activeOpacity={0.8}
         >
           <Text style={[styles.tabText, activeTab === 'pending' && styles.tabTextActive]}>
-            Pending ({pendingRecipes.length})
+            {t('admin_review_screen.pending_tab', { count: pendingRecipes.length })}
           </Text>
         </TouchableOpacity>
         <TouchableOpacity
@@ -223,16 +330,167 @@ export default function AdminReviewScreen() {
           activeOpacity={0.8}
         >
           <Text style={[styles.tabText, activeTab === 'all' && styles.tabTextActive]}>
-            All Recipes ({allRecipes.length})
+            {t('admin_review_screen.all_tab', { count: allRecipes.length })}
+          </Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={[styles.tabBtn, activeTab === 'reports' && styles.tabBtnActive]}
+          onPress={() => setActiveTab('reports')}
+          activeOpacity={0.8}
+        >
+          <Text style={[styles.tabText, activeTab === 'reports' && styles.tabTextActive]}>
+            {t('admin_review_screen.reports_tab', { count: reportedRecipes.length })}
+          </Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={[styles.tabBtn, activeTab === 'deleted' && styles.tabBtnActive]}
+          onPress={() => setActiveTab('deleted')}
+          activeOpacity={0.8}
+        >
+          <Text style={[styles.tabText, activeTab === 'deleted' && styles.tabTextActive]}>
+            {t('admin_review_screen.deleted_tab', { count: deletedRecipes.length })}
           </Text>
         </TouchableOpacity>
       </View>
 
-      {listToShow.length === 0 ? (
+      {activeTab === 'reports' ? (
+        reportedRecipes.length === 0 ? (
+          <View style={styles.empty}>
+            <Ionicons name="checkmark-done-circle-outline" size={48} color={colors.subtext} />
+            <Text style={[styles.emptyText, { color: colors.subtext }]}>
+              {t('admin_review_screen.empty_reports')}
+            </Text>
+          </View>
+        ) : (
+          reportedRecipes.map((recipe) => (
+            <View key={recipe.id} style={[styles.card, { backgroundColor: colors.card }]}>
+              <View style={styles.cardHeader}>
+                {recipe.image_url ? (
+                  <Image source={{ uri: recipe.image_url }} style={styles.thumb} contentFit="cover" />
+                ) : (
+                  <View style={[styles.thumb, styles.thumbFallback]}>
+                    <Ionicons name="restaurant-outline" size={22} color={colors.subtext} />
+                  </View>
+                )}
+                <View style={{ flex: 1 }}>
+                  <Text style={[styles.cardTitle, { color: colors.text }]} numberOfLines={1}>
+                    {recipe.title}
+                  </Text>
+                  <Text style={[styles.cardMeta, { color: colors.subtext }]}>
+                    {t('my_orders_screen.by_chef', { name: recipe.chef_name ?? t('admin_review_screen.unknown_chef') })}
+                  </Text>
+                  <View style={styles.metaRow}>
+                    <View style={styles.similarityBadge}>
+                      <Ionicons name="flag" size={11} color="#fff" />
+                      <Text style={styles.statusBadgeText}>
+                        {t('admin_review_screen.report_count', { count: Number(recipe.report_count) })}
+                      </Text>
+                    </View>
+                  </View>
+                </View>
+                <TouchableOpacity onPress={() => router.push(`/recipe/${recipe.id}` as any)}>
+                  <Ionicons name="eye-outline" size={20} color={colors.subtext} />
+                </TouchableOpacity>
+              </View>
+
+              {recipe.latest_reason && (
+                <View style={styles.reportReasonBox}>
+                  <Text style={styles.reportReasonLabel}>{t('admin_review_screen.report_reason_label')}</Text>
+                  <Text style={styles.reportReasonText}>“{recipe.latest_reason}”</Text>
+                  {recipe.reasons.length > 1 && (
+                    <Text style={styles.reportReasonMore}>
+                      {t('admin_review_screen.report_reason_more', { count: recipe.reasons.length - 1 })}
+                    </Text>
+                  )}
+                </View>
+              )}
+
+              <View style={styles.actionRow}>
+                <TouchableOpacity
+                  style={[styles.actionBtn, styles.rejectBtn, dismissingId === recipe.id && { opacity: 0.6 }]}
+                  onPress={() => runDismissReport(recipe.id)}
+                  disabled={dismissingId === recipe.id}
+                >
+                  <Ionicons name="close" size={18} color={RED} />
+                  <Text style={styles.rejectBtnText}>{t('admin_review_screen.dismiss_report')}</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[styles.actionBtn, styles.deleteBtn, deletingId === recipe.id && { opacity: 0.6 }]}
+                  onPress={() => openDeleteModal({ id: recipe.id, status: recipe.status, latest_reason: recipe.latest_reason })}
+                  disabled={deletingId === recipe.id}
+                >
+                  <Ionicons name="trash-outline" size={18} color="#fff" />
+                  <Text style={styles.approveBtnText}>
+                    {deletingId === recipe.id ? t('admin_review_screen.deleting') : t('admin_review_screen.delete_recipe')}
+                  </Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          ))
+        )
+      ) : activeTab === 'deleted' ? (
+        deletedRecipes.length === 0 ? (
+          <View style={styles.empty}>
+            <Ionicons name="checkmark-done-circle-outline" size={48} color={colors.subtext} />
+            <Text style={[styles.emptyText, { color: colors.subtext }]}>
+              {t('admin_review_screen.empty_deleted')}
+            </Text>
+          </View>
+        ) : (
+          deletedRecipes.map((recipe) => (
+            <View key={recipe.id} style={[styles.card, { backgroundColor: colors.card }]}>
+              <View style={styles.cardHeader}>
+                {recipe.image_url ? (
+                  <Image source={{ uri: recipe.image_url }} style={[styles.thumb, { opacity: 0.5 }]} contentFit="cover" />
+                ) : (
+                  <View style={[styles.thumb, styles.thumbFallback]}>
+                    <Ionicons name="restaurant-outline" size={22} color={colors.subtext} />
+                  </View>
+                )}
+                <View style={{ flex: 1 }}>
+                  <Text style={[styles.cardTitle, { color: colors.text }]} numberOfLines={1}>
+                    {recipe.title}
+                  </Text>
+                  <Text style={[styles.cardMeta, { color: colors.subtext }]}>
+                    {t('my_orders_screen.by_chef', { name: recipe.chef_name ?? t('admin_review_screen.unknown_chef') })}
+                  </Text>
+                  <View style={styles.metaRow}>
+                    <View style={[styles.statusBadge, { backgroundColor: statusColor('deleted') }]}>
+                      <Text style={styles.statusBadgeText}>
+                        {t('admin_review_screen.purge_countdown', { count: daysLeft(recipe.deleted_at, recipe.restore_window_days) })}
+                      </Text>
+                    </View>
+                  </View>
+                </View>
+              </View>
+
+              {recipe.rejection_reason && (
+                <View style={styles.reportReasonBox}>
+                  <Text style={styles.reportReasonLabel}>{t('admin_review_screen.delete_reason_label')}</Text>
+                  <Text style={styles.reportReasonText}>“{recipe.rejection_reason}”</Text>
+                </View>
+              )}
+
+              <View style={styles.actionRow}>
+                <TouchableOpacity
+                  style={[styles.actionBtn, styles.approveBtn, restoringId === recipe.id && { opacity: 0.6 }]}
+                  onPress={() => runRestore(recipe.id)}
+                  disabled={restoringId === recipe.id}
+                >
+                  <Ionicons name="refresh" size={18} color="#fff" />
+                  <Text style={styles.approveBtnText}>
+                    {restoringId === recipe.id ? t('admin_review_screen.working') : t('admin_review_screen.restore_recipe')}
+                  </Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          ))
+        )
+      ) : listToShow.length === 0 ? (
         <View style={styles.empty}>
           <Ionicons name="checkmark-done-circle-outline" size={48} color={colors.subtext} />
           <Text style={[styles.emptyText, { color: colors.subtext }]}>
-            {activeTab === 'pending' ? 'No recipes waiting for review right now.' : 'No recipes found.'}
+            {activeTab === 'pending' ? t('admin_review_screen.empty_pending') : t('admin_review_screen.empty_all')}
           </Text>
         </View>
       ) : (
@@ -257,15 +515,31 @@ export default function AdminReviewScreen() {
                     {recipe.title}
                   </Text>
                   <Text style={[styles.cardMeta, { color: colors.subtext }]}>
-                    {recipe.cuisine} • by {recipe.chef_name ?? 'Unknown chef'}
+                    {recipe.cuisine} • {t('my_orders_screen.by_chef', { name: recipe.chef_name ?? t('admin_review_screen.unknown_chef') })}
                   </Text>
                   <View style={styles.metaRow}>
                     <Text style={[styles.cardMeta, { color: RED }]}>
-                      {recipe.is_free ? 'Free' : `$${Number(recipe.price_usd ?? 0).toFixed(2)}`}
+                      {recipe.is_free ? t('admin_review_screen.free') : `$${Number(recipe.price_usd ?? 0).toFixed(2)}`}
                     </Text>
                     {activeTab === 'all' && (
                       <View style={[styles.statusBadge, { backgroundColor: statusColor(recipe.status) }]}>
                         <Text style={styles.statusBadgeText}>{statusLabel(recipe.status)}</Text>
+                      </View>
+                    )}
+                    {!!recipe.possible_matches?.length ? (
+                      <View style={styles.similarityBadge}>
+                        <Ionicons name="warning" size={11} color="#fff" />
+                        <Text style={styles.statusBadgeText}>
+                          {t('admin_review_screen.possible_match_badge')} {Math.round(recipe.possible_matches[0].score * 100)}%
+                        </Text>
+                      </View>
+                    ) : (
+                      <View style={[styles.similarityBadge, { backgroundColor: colors.border }]}>
+                        <Text style={[styles.statusBadgeText, { color: colors.subtext }]}>
+                          {t('admin_review_screen.similar_chip', {
+                            percent: Math.round((recipe.similar_recipes?.[0]?.score ?? 0) * 100),
+                          })}
+                        </Text>
                       </View>
                     )}
                   </View>
@@ -279,13 +553,43 @@ export default function AdminReviewScreen() {
 
               {expanded && (
                 <View style={styles.detailBlock}>
-                  <Text style={[styles.detailLabel, { color: colors.text }]}>Description</Text>
+                  {(() => {
+                    const flagged = !!recipe.possible_matches?.length;
+                    const similar = recipe.similar_recipes ?? [];
+                    return (
+                      <View style={[styles.similarityBox, !flagged && { backgroundColor: colors.border + '55' }]}>
+                        <Text style={[styles.similarityTitle, !flagged && { color: colors.text }]}>
+                          {flagged
+                            ? t('admin_review_screen.possible_match_title')
+                            : t('admin_review_screen.closest_matches_title')}
+                        </Text>
+                        {similar.length === 0 ? (
+                          <Text style={[styles.similarityText, !flagged && { color: colors.subtext }]}>
+                            {t('admin_review_screen.no_similar')}
+                          </Text>
+                        ) : (
+                          similar.map((m) => (
+                            <Text key={m.id} style={[styles.similarityText, !flagged && { color: colors.subtext }]}>
+                              {t('admin_review_screen.possible_match_line', {
+                                percent: Math.round(m.score * 100),
+                                title: m.title,
+                                chef: m.chef_name ?? t('admin_review_screen.unknown_chef'),
+                                date: new Date(m.created_at).toLocaleDateString(),
+                              })}
+                            </Text>
+                          ))
+                        )}
+                      </View>
+                    );
+                  })()}
+
+                  <Text style={[styles.detailLabel, { color: colors.text }]}>{t('admin_review_screen.description')}</Text>
                   <Text style={[styles.detailText, { color: colors.subtext }]}>{recipe.description}</Text>
 
-                  <Text style={[styles.detailLabel, { color: colors.text }]}>Ingredients</Text>
+                  <Text style={[styles.detailLabel, { color: colors.text }]}>{t('admin_review_screen.ingredients')}</Text>
                   <Text style={[styles.detailText, { color: colors.subtext }]}>{recipe.ingredients}</Text>
 
-                  <Text style={[styles.detailLabel, { color: colors.text }]}>Steps</Text>
+                  <Text style={[styles.detailLabel, { color: colors.text }]}>{t('admin_review_screen.steps')}</Text>
                   <Text style={[styles.detailText, { color: colors.subtext }]}>{recipe.steps}</Text>
                 </View>
               )}
@@ -298,7 +602,7 @@ export default function AdminReviewScreen() {
                     disabled={actingId === recipe.id}
                   >
                     <Ionicons name="close" size={18} color={RED} />
-                    <Text style={styles.rejectBtnText}>Reject</Text>
+                    <Text style={styles.rejectBtnText}>{t('admin_review_screen.reject')}</Text>
                   </TouchableOpacity>
                   <TouchableOpacity
                     style={[styles.actionBtn, styles.approveBtn, actingId === recipe.id && { opacity: 0.6 }]}
@@ -307,7 +611,7 @@ export default function AdminReviewScreen() {
                   >
                     <Ionicons name="checkmark" size={18} color="#fff" />
                     <Text style={styles.approveBtnText}>
-                      {actingId === recipe.id ? 'Working...' : 'Approve'}
+                      {actingId === recipe.id ? t('admin_review_screen.working') : t('admin_review_screen.approve')}
                     </Text>
                   </TouchableOpacity>
                 </View>
@@ -315,12 +619,12 @@ export default function AdminReviewScreen() {
                 <View style={styles.actionRow}>
                   <TouchableOpacity
                     style={[styles.actionBtn, styles.deleteBtn, deletingId === recipe.id && { opacity: 0.6 }]}
-                    onPress={() => handleDeletePress(recipe)}
+                    onPress={() => openDeleteModal(recipe)}
                     disabled={deletingId === recipe.id}
                   >
                     <Ionicons name="trash-outline" size={18} color="#fff" />
                     <Text style={styles.approveBtnText}>
-                      {deletingId === recipe.id ? 'Deleting...' : 'Delete Recipe'}
+                      {deletingId === recipe.id ? t('admin_review_screen.deleting') : t('admin_review_screen.delete_recipe')}
                     </Text>
                   </TouchableOpacity>
                 </View>
@@ -339,29 +643,29 @@ export default function AdminReviewScreen() {
       >
         <View style={styles.modalOverlay}>
           <View style={[styles.modalCard, { backgroundColor: colors.card }]}>
-            <Text style={[styles.modalTitle, { color: colors.text }]}>Why reject this recipe?</Text>
+            <Text style={[styles.modalTitle, { color: colors.text }]}>{t('admin_review_screen.reject_modal_title')}</Text>
             <Text style={[styles.modalSubtitle, { color: colors.subtext }]}>
-              This will be shown to the chef so they understand what to fix.
+              {t('admin_review_screen.reject_modal_subtitle')}
             </Text>
 
-            {REJECTION_REASONS.map((reason) => (
+            {REJECTION_REASON_KEYS.map((key) => (
               <TouchableOpacity
-                key={reason}
+                key={key}
                 style={styles.reasonRow}
-                onPress={() => setSelectedReason(reason)}
+                onPress={() => setSelectedReasonKey(key)}
                 activeOpacity={0.7}
               >
-                <View style={[styles.radio, selectedReason === reason && styles.radioSelected]}>
-                  {selectedReason === reason && <View style={styles.radioDot} />}
+                <View style={[styles.radio, selectedReasonKey === key && styles.radioSelected]}>
+                  {selectedReasonKey === key && <View style={styles.radioDot} />}
                 </View>
-                <Text style={[styles.reasonText, { color: colors.text }]}>{reason}</Text>
+                <Text style={[styles.reasonText, { color: colors.text }]}>{t(`admin_review_screen.reasons.${key}`)}</Text>
               </TouchableOpacity>
             ))}
 
-            {selectedReason === 'Other' && (
+            {selectedReasonKey === 'other' && (
               <TextInput
                 style={[styles.customInput, { color: colors.text, borderColor: colors.border }]}
-                placeholder="Describe the issue..."
+                placeholder={t('admin_review_screen.reject_custom_placeholder')}
                 placeholderTextColor={colors.subtext}
                 value={customReason}
                 onChangeText={setCustomReason}
@@ -371,10 +675,47 @@ export default function AdminReviewScreen() {
 
             <View style={styles.modalBtnRow}>
               <TouchableOpacity style={styles.modalCancelBtn} onPress={() => setRejectModalId(null)}>
-                <Text style={[styles.modalCancelText, { color: colors.subtext }]}>Cancel</Text>
+                <Text style={[styles.modalCancelText, { color: colors.subtext }]}>{t('common.cancel')}</Text>
               </TouchableOpacity>
               <TouchableOpacity style={styles.modalConfirmBtn} onPress={confirmReject}>
-                <Text style={styles.modalConfirmText}>Send Rejection</Text>
+                <Text style={styles.modalConfirmText}>{t('admin_review_screen.send_rejection')}</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Delete reason — required so the chef can be told why, and shown
+          again if this delete came from a report so the admin doesn't have
+          to retype the reporter's complaint */}
+      <Modal
+        visible={!!deleteModalRecipe}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setDeleteModalRecipe(null)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={[styles.modalCard, { backgroundColor: colors.card }]}>
+            <Text style={[styles.modalTitle, { color: colors.text }]}>{t('admin_review_screen.delete_modal_title')}</Text>
+            <Text style={[styles.modalSubtitle, { color: colors.subtext }]}>
+              {t('admin_review_screen.delete_modal_subtitle')}
+            </Text>
+
+            <TextInput
+              style={[styles.customInput, { color: colors.text, borderColor: colors.border }]}
+              placeholder={t('admin_review_screen.delete_reason_placeholder')}
+              placeholderTextColor={colors.subtext}
+              value={deleteReason}
+              onChangeText={setDeleteReason}
+              multiline
+            />
+
+            <View style={styles.modalBtnRow}>
+              <TouchableOpacity style={styles.modalCancelBtn} onPress={() => setDeleteModalRecipe(null)}>
+                <Text style={[styles.modalCancelText, { color: colors.subtext }]}>{t('common.cancel')}</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={styles.modalConfirmBtn} onPress={confirmDelete}>
+                <Text style={styles.modalConfirmText}>{t('admin_review_screen.delete_recipe')}</Text>
               </TouchableOpacity>
             </View>
           </View>
@@ -409,6 +750,14 @@ const styles = StyleSheet.create({
   metaRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   statusBadge: { paddingHorizontal: 8, paddingVertical: 2, borderRadius: 8 },
   statusBadgeText: { fontSize: 10, fontWeight: '700', color: '#fff' },
+  similarityBadge: { flexDirection: 'row', alignItems: 'center', gap: 4, paddingHorizontal: 8, paddingVertical: 2, borderRadius: 8, backgroundColor: '#B36B00' },
+  similarityBox: { backgroundColor: 'rgba(179,107,0,0.12)', borderRadius: 10, padding: 10, marginBottom: 10, gap: 4 },
+  similarityTitle: { fontSize: 12.5, fontWeight: '700', color: '#B36B00', marginBottom: 2 },
+  similarityText: { fontSize: 12, lineHeight: 17, color: '#8A5200' },
+  reportReasonBox: { backgroundColor: 'rgba(214,40,40,0.08)', borderRadius: 10, padding: 10, marginTop: 12 },
+  reportReasonLabel: { fontSize: 11, fontWeight: '700', color: RED, textTransform: 'uppercase', letterSpacing: 0.4, marginBottom: 3 },
+  reportReasonText: { fontSize: 13, lineHeight: 18, color: '#5A1616', fontStyle: 'italic' },
+  reportReasonMore: { fontSize: 11.5, color: '#8A5200', marginTop: 4 },
   detailBlock: { marginTop: 14, paddingTop: 14, borderTopWidth: 1, borderTopColor: 'rgba(0,0,0,0.08)' },
   detailLabel: { fontSize: 13, fontWeight: '700', marginBottom: 4, marginTop: 8 },
   detailText: { fontSize: 13, lineHeight: 19 },

@@ -11,6 +11,7 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
+import { useTranslation } from 'react-i18next';
 import { useTheme } from '@/lib/theme-context';
 import { apiFetch } from '@/lib/api-fetch';
 import { useSession } from '@/lib/supabase';
@@ -20,6 +21,7 @@ const RED = '#D62828';
 export default function EditProfileScreen() {
   const router = useRouter();
   const { colors } = useTheme();
+  const { t } = useTranslation();
   const { data: session } = useSession();
   const [username, setUsername] = useState('');
   const [loadingProfile, setLoadingProfile] = useState(true);
@@ -40,15 +42,15 @@ export default function EditProfileScreen() {
 
   const handleSave = async () => {
     if (!username.trim()) {
-      Alert.alert('Error', 'Name cannot be empty');
+      Alert.alert(t('common.error'), t('edit_profile_screen.name_empty_error'));
       return;
     }
     if (newPassword && !currentPassword) {
-      Alert.alert('Error', 'Please enter your current password to change it');
+      Alert.alert(t('common.error'), t('edit_profile_screen.current_password_required_error'));
       return;
     }
     if (newPassword && newPassword.length < 8) {
-      Alert.alert('Error', 'New password must be at least 8 characters');
+      Alert.alert(t('common.error'), t('edit_profile_screen.password_too_short_error'));
       return;
     }
 
@@ -65,11 +67,11 @@ export default function EditProfileScreen() {
     setLoading(false);
 
     if (!res.ok) {
-      Alert.alert('Failed', data.error ?? 'Something went wrong');
+      Alert.alert(t('common.failed'), data.error ?? t('common.something_wrong'));
       return;
     }
 
-    Alert.alert('Success', 'Profile updated successfully!');
+    Alert.alert(t('common.success'), t('edit_profile_screen.success_message'));
     router.back();
   };
   if (loadingProfile) {
@@ -87,16 +89,16 @@ export default function EditProfileScreen() {
     >
       <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
         <Ionicons name="chevron-back" size={22} color={RED} />
-        <Text style={styles.backText}>Back</Text>
+        <Text style={styles.backText}>{t('common.back')}</Text>
       </TouchableOpacity>
 
-      <Text style={[styles.title, { color: colors.text }]}>Edit Profile</Text>
+      <Text style={[styles.title, { color: colors.text }]}>{t('profile.edit_profile')}</Text>
       <Text style={[styles.subtitle, { color: colors.subtext }]}>
-        Update your name or change your password
+        {t('edit_profile_screen.subtitle')}
       </Text>
 
       <View style={[styles.card, { backgroundColor: colors.card }]}>
-        <Text style={[styles.sectionTitle, { color: colors.text }]}>Display Name</Text>
+        <Text style={[styles.sectionTitle, { color: colors.text }]}>{t('edit_profile_screen.display_name')}</Text>
         <View style={[styles.inputRow, { borderColor: colors.border, backgroundColor: colors.input }]}>
           <Ionicons name="person-outline" size={20} color="#999" style={styles.inputIcon} />
           <TextInput
@@ -104,19 +106,19 @@ export default function EditProfileScreen() {
             value={username}
             onChangeText={setUsername}
             placeholderTextColor="#999"
-            placeholder="Your name"
+            placeholder={t('edit_profile_screen.name_placeholder')}
             autoCapitalize="words"
           />
         </View>
       </View>
 
       <View style={[styles.card, { backgroundColor: colors.card }]}>
-        <Text style={[styles.sectionTitle, { color: colors.text }]}>Change Password</Text>
+        <Text style={[styles.sectionTitle, { color: colors.text }]}>{t('edit_profile_screen.change_password')}</Text>
         <Text style={[styles.sectionSubtitle, { color: colors.subtext }]}>
-          Leave blank if you don't want to change it
+          {t('edit_profile_screen.change_password_subtitle')}
         </Text>
 
-        <Text style={[styles.label, { color: colors.subtext }]}>Current Password</Text>
+        <Text style={[styles.label, { color: colors.subtext }]}>{t('edit_profile_screen.current_password')}</Text>
         <View style={[styles.inputRow, { borderColor: colors.border, backgroundColor: colors.input }]}>
           <Ionicons name="lock-closed-outline" size={20} color="#999" style={styles.inputIcon} />
           <TextInput
@@ -124,7 +126,7 @@ export default function EditProfileScreen() {
             value={currentPassword}
             onChangeText={setCurrentPassword}
             secureTextEntry={!showCurrent}
-            placeholder="Enter current password"
+            placeholder={t('edit_profile_screen.current_password_placeholder')}
             placeholderTextColor="#999"
           />
           <TouchableOpacity onPress={() => setShowCurrent((v) => !v)}>
@@ -132,7 +134,7 @@ export default function EditProfileScreen() {
           </TouchableOpacity>
         </View>
 
-        <Text style={[styles.label, { color: colors.subtext }]}>New Password</Text>
+        <Text style={[styles.label, { color: colors.subtext }]}>{t('edit_profile_screen.new_password')}</Text>
         <View style={[styles.inputRow, { borderColor: colors.border, backgroundColor: colors.input }]}>
           <Ionicons name="lock-open-outline" size={20} color="#999" style={styles.inputIcon} />
           <TextInput
@@ -140,7 +142,7 @@ export default function EditProfileScreen() {
             value={newPassword}
             onChangeText={setNewPassword}
             secureTextEntry={!showNew}
-            placeholder="At least 8 characters"
+            placeholder={t('edit_profile_screen.new_password_placeholder')}
             placeholderTextColor="#999"
           />
           <TouchableOpacity onPress={() => setShowNew((v) => !v)}>
@@ -159,7 +161,7 @@ export default function EditProfileScreen() {
         ) : (
           <>
             <Ionicons name="checkmark-circle" size={20} color="#fff" />
-            <Text style={styles.saveButtonText}>Save Changes</Text>
+            <Text style={styles.saveButtonText}>{t('edit_profile_screen.save_changes')}</Text>
           </>
         )}
       </TouchableOpacity>

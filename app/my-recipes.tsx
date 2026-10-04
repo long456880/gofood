@@ -11,6 +11,7 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { Image } from 'expo-image';
 import { useRouter, useFocusEffect } from 'expo-router';
+import { useTranslation } from 'react-i18next';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { apiFetch } from '@/lib/api-fetch';
 import { useTheme } from '@/lib/theme-context';
@@ -21,23 +22,34 @@ type MyRecipe = {
   id: string;
   title: string;
   image_url: string | null;
-  status: 'pending' | 'approved' | 'rejected';
+  status: 'pending' | 'approved' | 'rejected' | 'deleted';
   price_usd: number | string | null;
   is_free: boolean;
   created_at: string;
   rejection_reason?: string | null;
+  deleted_at?: string | null;
 };
 
-const STATUS_STYLES: Record<string, { bg: string; text: string; label: string }> = {
-  pending: { bg: '#F5A62322', text: '#B5750B', label: 'Pending Review' },
-  approved: { bg: '#2E7D3222', text: '#2E7D32', label: 'Live' },
-  rejected: { bg: '#D6282822', text: RED, label: 'Rejected' },
-};
+const RESTORE_WINDOW_DAYS = 3;
+
+function daysLeft(deletedAt: string): number {
+  const purgeAt = new Date(deletedAt).getTime() + RESTORE_WINDOW_DAYS * 24 * 60 * 60 * 1000;
+  return Math.max(0, Math.ceil((purgeAt - Date.now()) / (24 * 60 * 60 * 1000)));
+}
 
 export default function MyRecipesScreen() {
   const router = useRouter();
   const { colors } = useTheme();
   const insets = useSafeAreaInsets();
+  const { t } = useTranslation();
+
+  const STATUS_STYLES: Record<string, { bg: string; text: string; label: string }> = {
+    pending: { bg: '#F5A62322', text: '#B5750B', label: t('my_recipes_screen.status_pending') },
+    approved: { bg: '#2E7D3222', text: '#2E7D32', label: t('my_recipes_screen.status_live') },
+    rejected: { bg: '#D6282822', text: RED, label: t('my_recipes_screen.status_rejected') },
+    deleted: { bg: '#55555522', text: '#555', label: t('my_recipes_screen.status_deleted') },
+  };
+
   const [recipes, setRecipes] = useState<MyRecipe[]>([]);
   const [loading, setLoading] = useState(true);
   const [deletingId, setDeletingId] = useState<string | null>(null);
@@ -62,12 +74,12 @@ export default function MyRecipesScreen() {
 
   const confirmDelete = (id: string, title: string) => {
     Alert.alert(
-      'Delete this recipe?',
-      `"${title}" will be permanently removed. This can't be undone.`,
+      t('my_recipes_screen.confirm_delete_title'),
+      t('my_recipes_screen.confirm_delete_message', { title }),
       [
-        { text: 'Cancel', style: 'cancel' },
+        { text: t('common.cancel'), style: 'cancel' },
         {
-          text: 'Delete',
+          text: t('common.delete'),
           style: 'destructive',
           onPress: async () => {
             setDeletingId(id);
@@ -75,12 +87,12 @@ export default function MyRecipesScreen() {
               const res = await apiFetch(`/api/recipes/${id}/delete`, { method: 'POST' });
               const data = await res.json();
               if (!res.ok) {
-                Alert.alert('Failed', data.error ?? 'Could not delete this recipe.');
+                Alert.alert(t('common.failed'), data.error ?? t('my_recipes_screen.delete_failed'));
                 return;
               }
               setRecipes((prev) => prev.filter((r) => r.id !== id));
             } catch {
-              Alert.alert('Failed', 'Please check your connection and try again.');
+              Alert.alert(t('common.failed'), t('common.connection_error'));
             } finally {
               setDeletingId(null);
             }
@@ -108,28 +120,28 @@ export default function MyRecipesScreen() {
         <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
           <Ionicons name="chevron-back" size={24} color={colors.text} />
         </TouchableOpacity>
-                <Text style={[styles.headerTitle, { color: colors.text }]}>My Recipes</Text>
+                <Text style={[styles.headerTitle, { color: colors.text }]}>{t('my_recipes_screen.title')}</Text>
         <View style={{ width: 40 }} />
       </View>
 
       <Text style={[styles.pageDescription, { color: colors.subtext }]}>
-        Recipes you've uploaded, as a chef.
+        {t('my_recipes_screen.description')}
       </Text>
 
       {recipes.length === 0 ? (
         <View style={styles.empty}>
           <Ionicons name="restaurant-outline" size={48} color={colors.subtext} />
           <Text style={[styles.emptyText, { color: colors.subtext }]}>
-            You haven't submitted any recipes yet.
+            {t('my_recipes_screen.empty')}
           </Text>
           <TouchableOpacity style={styles.uploadBtn} onPress={() => router.push('/upload-recipe')}>
-            <Text style={styles.uploadBtnText}>Upload Your First Recipe</Text>
+            <Text style={styles.uploadBtnText}>{t('my_recipes_screen.upload_first')}</Text>
           </TouchableOpacity>
         </View>
       ) : (
         recipes.map((recipe) => {
           const statusStyle = STATUS_STYLES[recipe.status] ?? STATUS_STYLES.pending;
-          const canDelete = recipe.status !== 'approved';
+          const canDelete = recipe.status !== 'approved' && recipe.status !== 'deleted';
           return (
             <View key={recipe.id} style={[styles.card, { backgroundColor: colors.card }]}>
               {recipe.image_url ? (
@@ -149,11 +161,16 @@ export default function MyRecipesScreen() {
                   </Text>
                 </View>
                 <Text style={[styles.priceText, { color: colors.subtext }]}>
-                  {recipe.is_free ? 'Free' : `$${Number(recipe.price_usd ?? 0).toFixed(2)}`}
+                  {recipe.is_free ? t('my_recipes_screen.free') : `$${Number(recipe.price_usd ?? 0).toFixed(2)}`}
                 </Text>
-                {recipe.status === 'rejected' && recipe.rejection_reason && (
+                {(recipe.status === 'rejected' || recipe.status === 'deleted') && recipe.rejection_reason && (
                   <Text style={[styles.rejectionReasonText, { color: RED }]} numberOfLines={2}>
                     {recipe.rejection_reason}
+                  </Text>
+                )}
+                {recipe.status === 'deleted' && recipe.deleted_at && (
+                  <Text style={[styles.purgeCountdownText, { color: colors.subtext }]}>
+                    {t('my_recipes_screen.purge_countdown', { count: daysLeft(recipe.deleted_at) })}
                   </Text>
                 )}
               </View>
@@ -197,5 +214,6 @@ const styles = StyleSheet.create({
   statusPillText: { fontSize: 11, fontWeight: '700' },
    priceText: { fontSize: 12 },
   rejectionReasonText: { fontSize: 11.5, marginTop: 3, fontStyle: 'italic' },
+  purgeCountdownText: { fontSize: 10.5, marginTop: 2 },
   deleteBtn: { width: 40, height: 40, alignItems: 'center', justifyContent: 'center' },
 });

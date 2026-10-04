@@ -13,6 +13,7 @@ const CATEGORY_STYLE: Record<IngredientCategory, { icon: any; color: string }> =
   dairy: { icon: 'water-outline', color: '#5CA9D6' },
   grain: { icon: 'pizza-outline', color: '#B08150' },
   spice: { icon: 'flame-outline', color: '#B23A21' },
+  sweet: { icon: 'ice-cream-outline', color: '#C1873F' },
   herb: { icon: 'flower-outline', color: '#3F8F6B' },
   liquid: { icon: 'wine-outline', color: '#6E0000' },
   other: { icon: 'ellipse-outline', color: '#8A8A8A' },
@@ -236,6 +237,47 @@ function Meat({ color }: { color: string }) {
   );
 }
 
+function Flour() {
+  return (
+    <View style={styles.canvas}>
+      <View style={[styles.bar, { width: 19, height: 18, top: 12, left: 7, backgroundColor: '#F4EAD6', borderWidth: 1.5, borderColor: '#D3C2A2', borderRadius: 4 }]} />
+      <View style={[styles.bar, { width: 13, height: 7, top: 5, left: 10, backgroundColor: '#E6D8BE', borderWidth: 1.5, borderColor: '#D3C2A2', borderRadius: 3 }]} />
+      <View style={[styles.dot, { width: 5, height: 5, top: 24, left: 2, backgroundColor: '#FFFFFF' }]} />
+      <View style={[styles.dot, { width: 3, height: 3, top: 27, left: 7, backgroundColor: '#FFFFFF' }]} />
+    </View>
+  );
+}
+
+function Sugar() {
+  return (
+    <View style={styles.canvas}>
+      <View style={[styles.bar, { width: 13, height: 12, top: 15, left: 3.5, backgroundColor: '#FBFBFA', borderWidth: 1.5, borderColor: '#D8D2C4', borderRadius: 2.5 }]} />
+      <View style={[styles.bar, { width: 13, height: 12, top: 15, left: 15.5, backgroundColor: '#F1F0EA', borderWidth: 1.5, borderColor: '#D8D2C4', borderRadius: 2.5 }]} />
+      <View style={[styles.bar, { width: 13, height: 12, top: 4, left: 9.5, backgroundColor: '#FFFFFF', borderWidth: 1.5, borderColor: '#D8D2C4', borderRadius: 2.5 }]} />
+    </View>
+  );
+}
+
+function Butter() {
+  return (
+    <View style={styles.canvas}>
+      <View style={[styles.bar, { width: 24, height: 12, top: 14, left: 4, backgroundColor: '#F5CE55', borderWidth: 1.5, borderColor: '#C9A22F', borderRadius: 3 }]} />
+      <View style={[styles.bar, { width: 19, height: 6, top: 9, left: 8, backgroundColor: '#FFE68A', borderWidth: 1.5, borderColor: '#C9A22F', borderRadius: 2 }]} />
+    </View>
+  );
+}
+
+function Chocolate() {
+  return (
+    <View style={styles.canvas}>
+      <View style={[styles.bar, { width: 22, height: 20, top: 6, left: 5, backgroundColor: '#6B4226', borderWidth: 1.5, borderColor: '#432614', borderRadius: 3 }]} />
+      <View style={[styles.bar, { width: 19, height: 1.6, top: 15, left: 6.5, backgroundColor: '#432614' }]} />
+      <View style={[styles.bar, { width: 1.6, height: 17, top: 7.5, left: 15.2, backgroundColor: '#432614' }]} />
+      <View style={[styles.bar, { width: 5, height: 3, top: 9, left: 8, backgroundColor: '#8A5B36', borderRadius: 1.5 }]} />
+    </View>
+  );
+}
+
 function Shrimp() {
   return (
     <View style={styles.canvas}>
@@ -311,7 +353,12 @@ const SPECIFIC: { keywords: string[]; render: () => ReactElement }[] = [
   { keywords: ['coconut'], render: Coconut },
   { keywords: ['egg'], render: Egg },
   { keywords: ['milk', 'cream', 'yogurt'], render: Milk },
+  // After milk, so "buttermilk" still reads as milk rather than a butter block.
+  { keywords: ['butter'], render: Butter },
   { keywords: ['cheese'], render: Cheese },
+  { keywords: ['flour'], render: Flour },
+  { keywords: ['sugar'], render: Sugar },
+  { keywords: ['chocolate', 'cocoa'], render: Chocolate },
   { keywords: ['rice'], render: Rice },
   { keywords: ['noodle', 'pasta', 'spaghetti'], render: Noodle },
   { keywords: ['chicken', 'duck', 'turkey'], render: () => <Meat color="#E8B98A" /> },

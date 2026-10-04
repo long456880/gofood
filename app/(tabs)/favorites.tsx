@@ -1,8 +1,9 @@
 import { apiFetch } from '@/lib/api-fetch';
+import { useSession } from '@/lib/supabase';
 import { useTheme } from '@/lib/theme-context';
 import { Ionicons } from '@expo/vector-icons';
-import { Image } from 'expo-image';
 import { useRouter } from 'expo-router';
+import { Image } from 'expo-image';
 import { useState } from 'react';
 import { useFocusEffect } from 'expo-router';
 import { useCallback } from 'react';
@@ -18,6 +19,7 @@ import {
 } from 'react-native';
 
 const RED = '#D62828';
+const ADMIN_EMAIL = 'feihengkimborat@gmail.com';
 
 type Recipe = {
   id: string;
@@ -28,6 +30,8 @@ type Recipe = {
   point_cost: number;
   price_usd?: number | string | null;
   image_url?: string;
+  progress_image_1?: string | null;
+  progress_image_2?: string | null;
   category?: string;
   owned?: boolean;
   chef_name?: string;
@@ -85,17 +89,29 @@ export default function FavoritesScreen() {
   const router = useRouter();
   const { colors } = useTheme();
   const insets = useSafeAreaInsets();
+  const { data: session } = useSession();
   const [favorites, setFavorites] = useState<Recipe[]>([]);
   const [loading, setLoading] = useState(true);
   const { t } = useTranslation();
 
+  // Favorites is a home-cook feature — chefs and admins get redirected home
+  // if they somehow land on this route directly.
   useFocusEffect(
     useCallback(() => {
-      apiFetch('/api/favorites')
+      apiFetch('/api/profile')
         .then((res) => res.json())
-        .then((data) => setFavorites(data))
+        .then((profile) => {
+          if (profile.account_type === 'chef' || session?.user.email === ADMIN_EMAIL) {
+            router.replace('/');
+            return;
+          }
+          return apiFetch('/api/favorites')
+            .then((res) => res.json())
+            .then((data) => setFavorites(Array.isArray(data) ? data : []));
+        })
+        .catch(() => setFavorites([]))
         .finally(() => setLoading(false));
-    }, [])
+    }, [session])
   );
 
   if (loading) {
@@ -143,11 +159,7 @@ export default function FavoritesScreen() {
                   >
                     <View style={styles.imageContainer}>
                       {item.image_url ? (
-                        <Image
-                          source={{ uri: item.image_url }}
-                          style={styles.image}
-                          contentFit="cover"
-                        />
+                        <Image source={{ uri: item.image_url }} style={styles.image} contentFit="cover" />
                       ) : (
                         <View style={[styles.imagePlaceholder, { backgroundColor: colors.input }]}>
                           <Ionicons name={getCuisineIcon(item.cuisine, item.category ?? '')} size={36} color={RED} />
@@ -155,12 +167,12 @@ export default function FavoritesScreen() {
                       )}
                       {item.is_free ? (
                         <View style={[styles.badge, { backgroundColor: '#2E7D32' }]}>
-                          <Text style={styles.badgeText}>FREE</Text>
+                          <Text style={styles.badgeText}>{t('recipe_detail_screen.free_badge')}</Text>
                         </View>
                       ) : item.owned ? (
                         <View style={[styles.badge, { backgroundColor: '#3A3A3A' }]}>
                           <Ionicons name="checkmark-circle" size={9} color="#fff" />
-                          <Text style={styles.badgeText}>OWNED</Text>
+                          <Text style={styles.badgeText}>{t('recipe_detail_screen.owned_badge')}</Text>
                         </View>
                       ) : (
                         <View style={[styles.badge, { backgroundColor: RED }]}>
@@ -169,14 +181,16 @@ export default function FavoritesScreen() {
                       )}
                     </View>
                                        <View style={styles.cardBody}>
-                      <Text style={[styles.title, { color: colors.text }]} numberOfLines={1}>
-                        {item.title}
-                      </Text>
-                      <View style={styles.ratingRow}>
-                        <Ionicons name="star" size={12} color="#F5A623" />
-                        <Text style={[styles.ratingText, { color: colors.subtext }]}>
-                          {Number(item.rating_count ?? 0) > 0 ? Number(item.avg_rating).toFixed(1) : 'New'}
+                      <View style={styles.titleRow}>
+                        <Text style={[styles.title, { color: colors.text, flex: 1 }]} numberOfLines={1}>
+                          {item.title}
                         </Text>
+                        <View style={styles.ratingRow}>
+                          <Ionicons name="star" size={12} color="#F5A623" />
+                          <Text style={[styles.ratingText, { color: colors.subtext }]}>
+                            {Number(item.rating_count ?? 0) > 0 ? Number(item.avg_rating).toFixed(1) : 'New'}
+                          </Text>
+                        </View>
                       </View>
                       {item.chef_name && (
                         <Text style={[styles.chefText, { color: colors.subtext }]} numberOfLines={1}>
@@ -239,8 +253,9 @@ const styles = StyleSheet.create({
   },
   badgeText: { color: '#fff', fontSize: 11, fontWeight: '700' },
     cardBody: { padding: 12 },
+  titleRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   title: { fontSize: 15, fontWeight: '700' },
-  ratingRow: { flexDirection: 'row', alignItems: 'center', gap: 3, marginTop: 4 },
+  ratingRow: { flexDirection: 'row', alignItems: 'center', gap: 3 },
   ratingText: { fontSize: 11, fontWeight: '600' },
   chefText: { fontSize: 11, marginTop: 2 },
 });

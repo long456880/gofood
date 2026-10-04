@@ -41,8 +41,8 @@ export async function GET(request: Request) {
       chef_name: c.chef_name,
       sales_count: Number(c.sales_count),
       gross_revenue: gross,
-      chef_earnings: Math.round(gross * 0.7 * 100) / 100,
-      platform_cut: Math.round(gross * 0.3 * 100) / 100,
+      chef_earnings: Math.round(gross * 0.9 * 100) / 100,
+      platform_cut: Math.round(gross * 0.1 * 100) / 100,
     };
   });
 

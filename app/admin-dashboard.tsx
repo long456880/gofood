@@ -10,6 +10,7 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { Image } from 'expo-image';
 import { useRouter, useFocusEffect } from 'expo-router';
+import { useTranslation } from 'react-i18next';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { apiFetch } from '@/lib/api-fetch';
 import { useTheme } from '@/lib/theme-context';
@@ -46,6 +47,7 @@ export default function AdminDashboardScreen() {
   const router = useRouter();
   const { colors } = useTheme();
   const insets = useSafeAreaInsets();
+  const { t } = useTranslation();
   const [data, setData] = useState<DashboardData | null>(null);
   const [loading, setLoading] = useState(true);
   const [forbidden, setForbidden] = useState(false);
@@ -77,10 +79,10 @@ export default function AdminDashboardScreen() {
       <View style={[styles.center, { backgroundColor: colors.background }]}>
         <Ionicons name="lock-closed-outline" size={40} color={colors.subtext} />
         <Text style={[styles.deniedText, { color: colors.subtext }]}>
-          This dashboard is only available for the admin account.
+          {t('admin_dashboard_screen.denied')}
         </Text>
         <TouchableOpacity onPress={() => router.back()} style={styles.deniedBtn}>
-          <Text style={styles.deniedBtnText}>Go Back</Text>
+          <Text style={styles.deniedBtnText}>{t('admin_review_screen.go_back')}</Text>
         </TouchableOpacity>
       </View>
     );
@@ -104,39 +106,39 @@ export default function AdminDashboardScreen() {
         <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
           <Ionicons name="chevron-back" size={24} color={colors.text} />
         </TouchableOpacity>
-                <Text style={[styles.headerTitle, { color: colors.text }]}>Admin Dashboard</Text>
+                <Text style={[styles.headerTitle, { color: colors.text }]}>{t('admin_dashboard_screen.title')}</Text>
         <View style={{ width: 40 }} />
       </View>
 
       <Text style={[styles.pageDescription, { color: colors.subtext }]}>
-        Platform-wide sales and earnings, across all chefs.
+        {t('admin_dashboard_screen.description')}
       </Text>
 
       <View style={styles.summaryRow}>
-        <View style={[styles.summaryCard, { backgroundColor: RED }]}>
-          <Ionicons name="cash-outline" size={20} color="#fff" />
-          <Text style={styles.summaryValueLight}>${data.total_revenue.toFixed(2)}</Text>
-          <Text style={styles.summaryLabelLight}>Total Revenue</Text>
+        <View style={[styles.summaryCard, { backgroundColor: colors.card }]}>
+          <Ionicons name="cash-outline" size={20} color={RED} />
+          <Text style={[styles.summaryValue, { color: colors.text }]}>${data.total_revenue.toFixed(2)}</Text>
+          <Text style={[styles.summaryLabel, { color: colors.subtext }]}>{t('admin_dashboard_screen.total_revenue')}</Text>
         </View>
         <View style={[styles.summaryCard, { backgroundColor: colors.card }]}>
           <Ionicons name="bag-check-outline" size={20} color={RED} />
           <Text style={[styles.summaryValue, { color: colors.text }]}>{data.total_sales}</Text>
-          <Text style={[styles.summaryLabel, { color: colors.subtext }]}>Total Sales</Text>
+          <Text style={[styles.summaryLabel, { color: colors.subtext }]}>{t('admin_dashboard_screen.total_sales')}</Text>
         </View>
         <View style={[styles.summaryCard, { backgroundColor: colors.card }]}>
           <Ionicons name="business-outline" size={20} color={RED} />
           <Text style={[styles.summaryValue, { color: colors.text }]}>${data.total_platform_cut.toFixed(2)}</Text>
-          <Text style={[styles.summaryLabel, { color: colors.subtext }]}>Platform Cut</Text>
+          <Text style={[styles.summaryLabel, { color: colors.subtext }]}>{t('admin_dashboard_screen.platform_cut')}</Text>
         </View>
       </View>
 
-      <Text style={[styles.sectionTitle, { color: colors.text }]}>Chef Breakdown</Text>
+      <Text style={[styles.sectionTitle, { color: colors.text }]}>{t('admin_dashboard_screen.chef_breakdown')}</Text>
 
       {data.chefs.length === 0 ? (
         <View style={styles.empty}>
           <Ionicons name="people-outline" size={44} color={colors.subtext} />
           <Text style={[styles.emptyText, { color: colors.subtext }]}>
-            No chefs with sales yet.
+            {t('admin_dashboard_screen.no_chefs')}
           </Text>
         </View>
       ) : (
@@ -151,19 +153,23 @@ export default function AdminDashboardScreen() {
               </Text>
             </View>
             <Text style={[styles.chefMeta, { color: colors.subtext }]}>
-              {c.sales_count} sold  •  chef ${c.chef_earnings.toFixed(2)}  •  platform ${c.platform_cut.toFixed(2)}
+              {t('admin_dashboard_screen.chef_meta', {
+                count: c.sales_count,
+                chef: `$${c.chef_earnings.toFixed(2)}`,
+                platform: `$${c.platform_cut.toFixed(2)}`,
+              })}
             </Text>
           </View>
         ))
       )}
 
-      <Text style={[styles.sectionTitle, { color: colors.text }]}>Top Selling Recipes</Text>
+      <Text style={[styles.sectionTitle, { color: colors.text }]}>{t('admin_dashboard_screen.top_selling_recipes')}</Text>
 
       {data.top_recipes.length === 0 ? (
         <View style={styles.empty}>
           <Ionicons name="stats-chart-outline" size={44} color={colors.subtext} />
           <Text style={[styles.emptyText, { color: colors.subtext }]}>
-            No paid sales recorded yet.
+            {t('admin_dashboard_screen.no_sales')}
           </Text>
         </View>
       ) : (
@@ -187,7 +193,7 @@ export default function AdminDashboardScreen() {
                 {r.title}
               </Text>
               <Text style={[styles.recipeMeta, { color: colors.subtext }]}>
-                by {r.chef_name} • {r.sales_count} sold
+                {t('admin_dashboard_screen.recipe_by_sold', { name: r.chef_name, count: r.sales_count })}
               </Text>
             </View>
             <Text style={[styles.recipeEarnings, { color: RED }]}>
@@ -213,9 +219,7 @@ const styles = StyleSheet.create({
   summaryRow: { flexDirection: 'row', gap: 10, marginHorizontal: 20, marginBottom: 22 },
   summaryCard: { flex: 1, borderRadius: 16, padding: 12, alignItems: 'flex-start', gap: 5 },
   summaryValue: { fontSize: 16, fontWeight: '800' },
-  summaryValueLight: { fontSize: 16, fontWeight: '800', color: '#fff' },
   summaryLabel: { fontSize: 11 },
-  summaryLabelLight: { fontSize: 11, color: 'rgba(255,255,255,0.85)' },
   sectionTitle: { fontSize: 16, fontWeight: '700', marginHorizontal: 20, marginBottom: 10, marginTop: 4 },
   empty: { alignItems: 'center', justifyContent: 'center', gap: 12, marginTop: 20, marginBottom: 20, paddingHorizontal: 40 },
   emptyText: { fontSize: 13, textAlign: 'center' },

@@ -9,16 +9,15 @@ import {
   KeyboardAvoidingView,
   Platform,
   ScrollView,
-  Dimensions,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { Image } from 'expo-image';
 import { supabase } from '@/lib/supabase';
 import { signInWithGoogle } from '@/lib/google-auth';
 import { router } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 
 const RED = '#D62828';
-const { width } = Dimensions.get('window');
 
 export default function SignInScreen() {
   const { t } = useTranslation();
@@ -47,7 +46,7 @@ export default function SignInScreen() {
       }
     } catch (err) {
       console.log('Google sign-in error (thrown exception):', err);
-      Alert.alert(t('auth.sign_in_failed'), 'Something went wrong with Google sign-in.');
+      Alert.alert(t('auth.sign_in_failed'), t('auth.google_error'));
     } finally {
       setGoogleLoading(false);
     }
@@ -65,17 +64,21 @@ export default function SignInScreen() {
           <View style={styles.circle2} />
           <View style={styles.logoContainer}>
             <View style={styles.logoIcon}>
-              <Ionicons name="restaurant" size={36} color={RED} />
+              <Image
+                source={require('../assets/images/gofood-hat.png')}
+                style={styles.logoHat}
+                contentFit="contain"
+              />
             </View>
             <Text style={styles.logoText}>GoFood</Text>
-            <Text style={styles.logoTagline}>Discover & Cook Amazing Recipes</Text>
+            <Text style={styles.logoTagline}>{t('home.tagline')}</Text>
           </View>
         </View>
 
         {/* Form section */}
         <View style={styles.formSection}>
           <Text style={styles.formTitle}>{t('auth.welcome_back')}</Text>
-          <Text style={styles.formSubtitle}>Sign in to continue cooking</Text>
+          <Text style={styles.formSubtitle}>{t('auth.sign_in_subtitle')}</Text>
 
           <Text style={styles.label}>{t('auth.email')}</Text>
           <View style={styles.inputRow}>
@@ -109,6 +112,10 @@ export default function SignInScreen() {
             </TouchableOpacity>
           </View>
 
+          <TouchableOpacity style={styles.forgotButton} onPress={() => router.push('/forgot-password')}>
+            <Text style={styles.forgotText}>{t('auth.forgot_password')}</Text>
+          </TouchableOpacity>
+
           <TouchableOpacity
             style={[styles.button, loading && styles.buttonDisabled]}
             onPress={handleSignIn}
@@ -117,12 +124,11 @@ export default function SignInScreen() {
             <Text style={styles.buttonText}>
               {loading ? t('auth.signing_in') : t('auth.sign_in')}
             </Text>
-            {!loading && <Ionicons name="arrow-forward" size={20} color="#FFFFFF" />}
           </TouchableOpacity>
 
           <View style={styles.dividerRow}>
             <View style={styles.divider} />
-            <Text style={styles.dividerText}>or</Text>
+            <Text style={styles.dividerText}>{t('auth.or')}</Text>
             <View style={styles.divider} />
           </View>
 
@@ -133,7 +139,7 @@ export default function SignInScreen() {
           >
             <Ionicons name="logo-google" size={20} color="#111" />
             <Text style={styles.googleButtonText}>
-              {googleLoading ? 'Connecting...' : 'Continue with Google'}
+              {googleLoading ? t('auth.connecting') : t('auth.continue_with_google')}
             </Text>
           </TouchableOpacity>
 
@@ -190,6 +196,7 @@ const styles = StyleSheet.create({
     shadowRadius: 8,
     elevation: 5,
   },
+  logoHat: { width: 46, height: 38 },
   logoText: { fontSize: 32, fontWeight: 'bold', color: '#FFFFFF', letterSpacing: 1 },
   logoTagline: { fontSize: 13, color: 'rgba(255,255,255,0.8)', marginTop: 4 },
   formSection: {
@@ -216,6 +223,8 @@ const styles = StyleSheet.create({
   },
   inputIcon: { marginRight: 8 },
   input: { flex: 1, color: '#111', fontSize: 15, paddingVertical: 14 },
+  forgotButton: { alignSelf: 'flex-end', marginBottom: 18, marginTop: -8 },
+  forgotText: { color: RED, fontSize: 13, fontWeight: '600' },
   button: {
     flexDirection: 'row',
     backgroundColor: RED,

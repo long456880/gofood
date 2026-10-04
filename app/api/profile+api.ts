@@ -6,7 +6,7 @@ export async function GET(request: Request) {
     return Response.json({ error: "Not signed in" }, { status: 401 });
   }
   const result = await db.query(
-        `SELECT username, points, avatar_url, account_type, earnings_usd FROM profiles WHERE id = $1`,
+                `SELECT username, points, avatar_url, account_type, earnings_usd, notifications_enabled FROM profiles WHERE id = $1`,
     [session.user.id]
   );
   if (!result.rows[0]) {

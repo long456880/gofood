@@ -1,37 +1,37 @@
-import { useEffect, useState } from 'react';
-import {
-  View,
-  Text,
-  StyleSheet,
-  ScrollView,
-  ActivityIndicator,
-  TouchableOpacity,
-  Alert,
-  Dimensions,
-  Modal,
-} from 'react-native';
-import { useLocalSearchParams, useRouter } from 'expo-router';
-import { Ionicons } from '@expo/vector-icons';
-import { apiFetch } from '@/lib/api-fetch';
-import { useTheme } from '@/lib/theme-context';
-import { useTranslation } from 'react-i18next';
-import { Image } from 'expo-image';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import * as Speech from 'expo-speech';
-import StepAnimation, { getTechnique } from '@/components/StepAnimation';
-import IngredientChips from '@/components/IngredientChips';
 import IngredientIcon from '@/components/IngredientIcon';
-import { detectStepIngredients, cleanIngredientName } from '@/lib/ingredient-utils';
+import { Image } from 'expo-image';
+import StepAnimation, { getTechnique } from '@/components/StepAnimation';
+import { apiFetch } from '@/lib/api-fetch';
+import { detectStepIngredients } from '@/lib/ingredient-utils';
 import {
+  formatDuration,
+  getGlossaryTip,
+  getHighlightSegments,
+  parseSteps,
   RED,
   scaleIngredients,
-  parseSteps,
-  getHighlightSegments,
-  getDonenessCue,
-  formatDuration,
-  TECHNIQUE_TIPS,
-  TECHNIQUE_TIPS_KM,
+  splitIngredientAmount,
 } from '@/lib/recipe-utils';
+import { useTheme } from '@/lib/theme-context';
+import { Ionicons } from '@expo/vector-icons';
+import { useLocalSearchParams, useRouter } from 'expo-router';
+import { useEffect, useRef, useState } from 'react';
+import QRCode from 'react-native-qrcode-svg';
+import { useTranslation } from 'react-i18next';
+import {
+  ActivityIndicator,
+  Alert,
+  AppState,
+  Dimensions,
+  Modal,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View,
+} from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 const WARM_BG = '#FBF8F4';
 const { width } = Dimensions.get('window');
@@ -58,6 +58,8 @@ type RecipeDetail = {
   category: string;
   meal_type: string;
   image_url?: string;
+  progress_image_1?: string | null;
+  progress_image_2?: string | null;
   ingredients?: string;
   description_km?: string;
   ingredients_km?: string;
@@ -66,6 +68,7 @@ type RecipeDetail = {
   price_usd?: number;
   chef_id?: string;
   chef_name?: string;
+  created_at?: string;
   avg_rating?: number;
   rating_count?: number;
   my_rating?: number | null;
@@ -79,14 +82,28 @@ export default function RecipeDetailScreen() {
   const { t, i18n } = useTranslation();
   const [recipe, setRecipe] = useState<RecipeDetail | null>(null);
   const [loading, setLoading] = useState(true);
-  const [unlocking, setUnlocking] = useState(false);
   const [favorited, setFavorited] = useState(false);
   const [servings, setServings] = useState(2);
   const [selectedTaste, setSelectedTaste] = useState<string | null>(null);
   const [checkedIngredients, setCheckedIngredients] = useState<Set<number>>(new Set());
+  const [canReport, setCanReport] = useState(false);
+  const [reporting, setReporting] = useState(false);
+  const [showReportModal, setShowReportModal] = useState(false);
+  const [reportReason, setReportReason] = useState('');
   const [currentStep, setCurrentStep] = useState(0);
   const [showPayModal, setShowPayModal] = useState(false);
+  const [khqr, setKhqr] = useState<{ qr: string; md5: string; expiresAt: number } | null>(null);
+  const [khqrStatus, setKhqrStatus] = useState<'loading' | 'ready' | 'expired' | 'error'>('loading');
+  const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const [showCompleteModal, setShowCompleteModal] = useState(false);
   const [submittingRating, setSubmittingRating] = useState(false);
+  const [payMethod, setPayMethod] = useState<'bakong' | 'card'>('bakong');
+  const [cardNumber, setCardNumber] = useState('');
+  const [cardExpiry, setCardExpiry] = useState('');
+  const [cardCvc, setCardCvc] = useState('');
+  const [cardName, setCardName] = useState('');
+  const [cardError, setCardError] = useState<string | null>(null);
+  const [cardProcessing, setCardProcessing] = useState(false);
 
   const isKhmer = i18n.language === 'km';
 
@@ -101,6 +118,12 @@ export default function RecipeDetailScreen() {
 
   const fetchRecipe = async () => {
     const res = await apiFetch(`/api/recipes/${id}`);
+    // A removed or hidden recipe comes back as an error object, not a recipe —
+    // storing it would crash the screen, so show "not found" instead.
+    if (!res.ok) {
+      setRecipe(null);
+      return;
+    }
     const data = await res.json();
     setRecipe(data);
   };
@@ -115,23 +138,200 @@ export default function RecipeDetailScreen() {
     }
   };
 
+  // Only regular (home_cook) accounts can report a recipe as copied — a
+  // chef reporting another chef's recipe is a dispute for the admin to
+  // sort out during review, not a self-service action.
+  const checkCanReport = async () => {
+    try {
+      const res = await apiFetch('/api/profile');
+      const data = await res.json();
+      setCanReport(data.account_type === 'home_cook');
+    } catch {
+      setCanReport(false);
+    }
+  };
+
   useEffect(() => {
     setCurrentStep(0);
     fetchRecipe().finally(() => setLoading(false));
     checkFavorite();
+    checkCanReport();
   }, [id]);
 
-  const handleUnlock = async () => {
-    setUnlocking(true);
-    const res = await apiFetch(`/api/recipes/${id}/unlock`, { method: 'POST' });
-    setUnlocking(false);
-    if (!res.ok) {
-      Alert.alert('Payment Failed', 'Something went wrong. Please try again.');
+  const handleReport = () => {
+    setReportReason('');
+    setShowReportModal(true);
+  };
+
+  const submitReport = async () => {
+    if (!reportReason.trim()) {
+      Alert.alert(t('recipe_detail_screen.report_reason_required_title'), t('recipe_detail_screen.report_reason_required_message'));
       return;
     }
+    setReporting(true);
+    try {
+      const res = await apiFetch(`/api/recipes/${id}/report`, {
+        method: 'POST',
+        body: JSON.stringify({ reason: reportReason.trim() }),
+      });
+      if (res.ok) {
+        setShowReportModal(false);
+        Alert.alert(t('recipe_detail_screen.report_sent_title'), t('recipe_detail_screen.report_sent_message'));
+      } else if (res.status === 409) {
+        setShowReportModal(false);
+        Alert.alert(t('recipe_detail_screen.report_already_title'), t('recipe_detail_screen.report_already_message'));
+      } else {
+        Alert.alert(t('common.failed'), t('common.connection_error'));
+      }
+    } catch {
+      Alert.alert(t('common.failed'), t('common.connection_error'));
+    } finally {
+      setReporting(false);
+    }
+  };
+
+  const stopPolling = () => {
+    if (pollRef.current) {
+      clearInterval(pollRef.current);
+      pollRef.current = null;
+    }
+  };
+
+  // A single verification check. Bakong's Open API has a tight daily request
+  // quota, so this is called sparingly: once every 25s as a fallback, plus
+  // once immediately whenever the app comes back to the foreground — which
+  // is when a check actually has a chance of finding anything, since paying
+  // means leaving GoFood for a banking app and coming back.
+  const checkPayment = async (md5: string) => {
+    try {
+      const res = await apiFetch(`/api/recipes/${id}/unlock`, {
+        method: 'POST',
+        body: JSON.stringify({ md5 }),
+      });
+      if (res.ok) {
+        stopPolling();
+        setShowPayModal(false);
+        Alert.alert(t('recipe_detail_screen.payment_successful_title'), t('recipe.enjoy'));
+        fetchRecipe();
+      } else if (res.status !== 402) {
+        // 402 just means Bakong hasn't seen the payment yet — keep polling.
+        // Anything else (eg. verification temporarily unavailable) is a
+        // real failure, so stop instead of waiting forever.
+        stopPolling();
+        setKhqrStatus('error');
+      }
+    } catch {
+      // Network hiccup — the next check will retry.
+    }
+  };
+
+  const startPolling = (md5: string, expiresAt: number) => {
+    stopPolling();
+    pollRef.current = setInterval(() => {
+      if (Date.now() > expiresAt) {
+        stopPolling();
+        setKhqrStatus('expired');
+        return;
+      }
+      checkPayment(md5);
+    }, 25000);
+  };
+
+  useEffect(() => {
+    const sub = AppState.addEventListener('change', (state) => {
+      if (state === 'active' && showPayModal && khqrStatus === 'ready' && khqr) {
+        checkPayment(khqr.md5);
+      }
+    });
+    return () => sub.remove();
+  }, [showPayModal, khqrStatus, khqr]);
+
+  const requestKhqr = async () => {
+    setKhqrStatus('loading');
+    setKhqr(null);
+    try {
+      const res = await apiFetch(`/api/recipes/${id}/khqr`, { method: 'POST' });
+      const data = await res.json();
+      if (!res.ok) {
+        setKhqrStatus('error');
+        return;
+      }
+      setKhqr(data);
+      setKhqrStatus('ready');
+      startPolling(data.md5, data.expiresAt);
+    } catch {
+      setKhqrStatus('error');
+    }
+  };
+
+  const openPayModal = () => {
+    setPayMethod('bakong');
+    setCardNumber('');
+    setCardExpiry('');
+    setCardCvc('');
+    setCardName('');
+    setCardError(null);
+    setShowPayModal(true);
+    requestKhqr();
+  };
+
+  const closePayModal = () => {
+    stopPolling();
     setShowPayModal(false);
-    Alert.alert('Payment Successful', t('recipe.enjoy'));
-    fetchRecipe();
+  };
+
+  useEffect(() => stopPolling, []);
+
+  const formatCardNumber = (value: string) => {
+    const digits = value.replace(/\D/g, '').slice(0, 16);
+    return digits.replace(/(.{4})/g, '$1 ').trim();
+  };
+
+  const formatCardExpiry = (value: string) => {
+    const digits = value.replace(/\D/g, '').slice(0, 4);
+    if (digits.length <= 2) return digits;
+    return `${digits.slice(0, 2)}/${digits.slice(2)}`;
+  };
+
+  // This never talks to a real card network — it's a stand-in for Bakong so
+  // the app has a second payment option to demo. It only checks that the
+  // fields look like a card (so it isn't a one-tap "pay"), then credits the
+  // purchase the same way a verified Bakong payment does.
+  const handleCardPay = async () => {
+    if (cardNumber.replace(/\s/g, '').length !== 16) {
+      setCardError(t('recipe_detail_screen.card_number_invalid'));
+      return;
+    }
+    if (!/^\d{2}\/\d{2}$/.test(cardExpiry)) {
+      setCardError(t('recipe_detail_screen.card_expiry_invalid'));
+      return;
+    }
+    if (cardCvc.length < 3) {
+      setCardError(t('recipe_detail_screen.card_cvc_invalid'));
+      return;
+    }
+    if (cardName.trim().length === 0) {
+      setCardError(t('recipe_detail_screen.card_name_invalid'));
+      return;
+    }
+
+    setCardError(null);
+    setCardProcessing(true);
+    try {
+      await new Promise((resolve) => setTimeout(resolve, 1200));
+      const res = await apiFetch(`/api/recipes/${id}/mock-pay`, { method: 'POST' });
+      if (!res.ok) {
+        setCardError(t('recipe_detail_screen.payment_setup_failed'));
+        return;
+      }
+      setShowPayModal(false);
+      Alert.alert(t('recipe_detail_screen.payment_successful_title'), t('recipe.enjoy'));
+      fetchRecipe();
+    } catch {
+      setCardError(t('common.connection_error'));
+    } finally {
+      setCardProcessing(false);
+    }
   };
 
   const handleRate = async (value: number) => {
@@ -146,7 +346,7 @@ export default function RecipeDetailScreen() {
       const data = await res.json();
       console.log('Rating response:', res.status, data);
       if (!res.ok) {
-        Alert.alert('Failed', 'Could not save your rating. Please try again.');
+        Alert.alert(t('common.failed'), t('recipe_detail_screen.rating_failed'));
         return;
       }
       setRecipe((prev) =>
@@ -157,7 +357,7 @@ export default function RecipeDetailScreen() {
       console.log('State updated with my_rating:', value);
     } catch (err) {
       console.log('Rating error:', err);
-      Alert.alert('Failed', 'Please check your connection and try again.');
+      Alert.alert(t('common.failed'), t('common.connection_error'));
     } finally {
       setSubmittingRating(false);
     }
@@ -176,17 +376,28 @@ export default function RecipeDetailScreen() {
     });
   };
 
-  const handleReadAloud = (text: string) => {
-    Speech.stop();
-    Speech.speak(text, { language: isKhmer ? 'km' : 'en' });
-  };
-
   if (loading) {
     return <View style={[styles.center, { backgroundColor: colors.background }]}><ActivityIndicator size="large" color={RED} /></View>;
   }
 
   if (!recipe) {
-    return <View style={[styles.center, { backgroundColor: colors.background }]}><Text style={{ color: colors.text }}>Recipe not found.</Text></View>;
+    return (
+      <View style={[styles.center, { backgroundColor: colors.background, paddingHorizontal: 32 }]}>
+        <Ionicons name="trash-outline" size={48} color={colors.subtext} />
+        <Text style={{ color: colors.text, fontSize: 18, fontWeight: '700', marginTop: 14, textAlign: 'center' }}>
+          {t('recipe_detail_screen.removed_title')}
+        </Text>
+        <Text style={{ color: colors.subtext, fontSize: 14, lineHeight: 20, marginTop: 8, textAlign: 'center' }}>
+          {t('recipe_detail_screen.removed_desc')}
+        </Text>
+        <TouchableOpacity
+          style={{ marginTop: 22, backgroundColor: RED, paddingHorizontal: 28, paddingVertical: 12, borderRadius: 14 }}
+          onPress={() => router.back()}
+        >
+          <Text style={{ color: '#fff', fontWeight: '700', fontSize: 15 }}>{t('recipe.back')}</Text>
+        </TouchableOpacity>
+      </View>
+    );
   }
 
   const displayDescription = (isKhmer && recipe.description_km) ? recipe.description_km : recipe.description;
@@ -198,30 +409,21 @@ export default function RecipeDetailScreen() {
 
   const activeStep = parsedSteps[currentStep];
   const technique = activeStep ? getTechnique(activeStep.text) : 'general';
+  const nextStep = parsedSteps[currentStep + 1];
+  const nextTechnique = nextStep ? getTechnique(nextStep.text) : undefined;
 
   const englishSteps = recipe.steps ? parseSteps(recipe.steps) : [];
   const englishIngredientNames = recipe.ingredients
     ? recipe.ingredients.split(',').map((s) => s.trim()).filter(Boolean)
     : [];
-  const kmIngredientNames = recipe.ingredients_km
-    ? recipe.ingredients_km.split(',').map((s) => s.trim()).filter(Boolean)
-    : [];
   const englishActiveStep = englishSteps[currentStep];
   const stepIngredientMatches = englishActiveStep
     ? detectStepIngredients(englishActiveStep.text, englishIngredientNames)
     : [];
-  const stepIngredients = stepIngredientMatches.map((m) => {
-    if (isKhmer && kmIngredientNames[m.listIndex]) {
-      return cleanIngredientName(kmIngredientNames[m.listIndex]);
-    }
-    return m.name;
-  });
-  const techniqueTip = isKhmer ? TECHNIQUE_TIPS_KM[technique] : TECHNIQUE_TIPS[technique];
-  const donenessCue = activeStep ? getDonenessCue(activeStep.text) : null;
+  const glossaryTip = activeStep ? getGlossaryTip(activeStep.text, isKhmer) : null;
   const stepDuration = activeStep && activeStep.minutes.length > 0 ? formatDuration(activeStep.minutes[0]) : null;
   const highlightSegments = activeStep ? getHighlightSegments(activeStep.text, ingredientNames) : [];
 
-  const dessertKeywords = ['cake', 'dessert', 'pastry', 'sweet', 'tiramisu', 'sticky rice', 'mango', 'pudding', 'ice cream', 'pie', 'cookie'];
   const isDessert =
     (recipe.meal_type ?? '').toLowerCase() === 'dessert' ||
     (recipe.category ?? '').toLowerCase() === 'dessert' ||
@@ -237,21 +439,24 @@ export default function RecipeDetailScreen() {
     <ScrollView style={[styles.container, { backgroundColor: dark ? colors.background : WARM_BG }]} showsVerticalScrollIndicator={false}>
       {/* Hero */}
       <View style={[styles.hero, { backgroundColor: '#1A1A1A' }]}>
-        {recipe.image_url ? (
-          <Image
-            source={{ uri: recipe.image_url }}
-            style={StyleSheet.absoluteFillObject}
-            contentFit="contain"
-          />
-        ) : null}
-        <View style={[StyleSheet.absoluteFillObject, { backgroundColor: '#00000033' }]} />
+        {recipe.image_url && (
+          <Image source={{ uri: recipe.image_url }} style={StyleSheet.absoluteFill} contentFit="cover" />
+        )}
+        <View style={[StyleSheet.absoluteFill, { backgroundColor: '#00000033' }]} pointerEvents="none" />
         <View style={[styles.heroButtons, { top: insets.top + 12 }]}>
           <TouchableOpacity style={styles.heroBtn} onPress={() => router.back()}>
-            <Ionicons name="chevron-back" size={22} color="#fff" />
+            <Ionicons name="chevron-back" size={22} color="#fff" style={{ marginLeft: -2 }} />
           </TouchableOpacity>
-          <TouchableOpacity style={styles.heroBtn} onPress={handleFavorite}>
-            <Ionicons name={favorited ? 'heart' : 'heart-outline'} size={22} color={favorited ? RED : '#fff'} />
-          </TouchableOpacity>
+          <View style={{ flexDirection: 'row', gap: 10 }}>
+            {canReport && (
+              <TouchableOpacity style={styles.heroBtn} onPress={handleReport} disabled={reporting}>
+                <Ionicons name="flag-outline" size={20} color="#fff" />
+              </TouchableOpacity>
+            )}
+            <TouchableOpacity style={styles.heroBtn} onPress={handleFavorite}>
+              <Ionicons name={favorited ? 'heart' : 'heart-outline'} size={22} color={favorited ? RED : '#fff'} />
+            </TouchableOpacity>
+          </View>
         </View>
       </View>
 
@@ -260,15 +465,24 @@ export default function RecipeDetailScreen() {
         <View style={styles.inlineBadges}>
           <View style={styles.badge}><Text style={styles.badgeText}>{recipe.cuisine}</Text></View>
           {recipe.is_free
-            ? <View style={[styles.badge, { backgroundColor: '#2E7D32' }]}><Text style={styles.badgeText}>FREE</Text></View>
+            ? <View style={[styles.badge, { backgroundColor: '#2E7D32' }]}><Text style={styles.badgeText}>{t('recipe_detail_screen.free_badge')}</Text></View>
             : <View style={[styles.badge, { backgroundColor: RED }]}><Text style={styles.badgeText}>${Number(recipe.price_usd ?? 0).toFixed(2)}</Text></View>
           }
         </View>
         <Text style={[styles.title, { color: colors.text }]}>{recipe.title}</Text>
-        {recipe.chef_name && (
+        {(recipe.chef_name || recipe.created_at) && (
           <View style={styles.chefRow}>
-            <Ionicons name="ribbon-outline" size={14} color={RED} />
-            <Text style={[styles.chefName, { color: colors.subtext }]}>by {recipe.chef_name}</Text>
+            {recipe.chef_name && (
+              <Text style={[styles.chefName, { color: colors.subtext }]}>{t('my_orders_screen.by_chef', { name: recipe.chef_name })}</Text>
+            )}
+            {recipe.created_at && (
+              <Text style={[styles.chefName, { color: colors.subtext }]}>
+                {recipe.chef_name ? ' · ' : ''}
+                {t('recipe_detail_screen.published_on', {
+                  date: new Date(recipe.created_at).toLocaleDateString(),
+                })}
+              </Text>
+            )}
           </View>
         )}
         <Text style={[styles.description, { color: colors.subtext }]}>{displayDescription}</Text>
@@ -283,16 +497,19 @@ export default function RecipeDetailScreen() {
               })}
             </View>
             <Text style={[styles.ratingSummaryText, { color: colors.subtext }]}>
-              {recipe.rating_count && recipe.rating_count > 0
-                ? `${Number(recipe.avg_rating).toFixed(1)} (${recipe.rating_count} rating${recipe.rating_count === 1 ? '' : 's'})`
-                : 'No ratings yet'}
+              {Number(recipe.rating_count) > 0
+                ? t('recipe_detail_screen.rating_count', {
+                    count: Number(recipe.rating_count),
+                    avg: Number(recipe.avg_rating).toFixed(1),
+                  })
+                : t('recipe_detail_screen.no_ratings_yet')}
             </Text>
           </View>
 
           <View style={styles.rateDivider} />
 
           <Text style={[styles.cardLabel, { color: colors.text }]}>
-            {recipe.my_rating ? 'Your Rating' : 'Rate this recipe'}
+            {recipe.my_rating ? t('recipe_detail_screen.your_rating') : t('recipe_detail_screen.rate_this_recipe')}
           </Text>
           <View style={styles.starsRow}>
             {[1, 2, 3, 4, 5].map((i) => (
@@ -318,9 +535,8 @@ export default function RecipeDetailScreen() {
             <View style={styles.lockIconBg}><Ionicons name="lock-closed" size={32} color={RED} /></View>
             <Text style={[styles.lockedTitle, { color: colors.text }]}>{t('recipe.locked')}</Text>
             <Text style={[styles.lockedDesc, { color: colors.subtext }]}>{t('recipe.locked_desc')}</Text>
-            <TouchableOpacity style={styles.unlockBtn} onPress={() => setShowPayModal(true)}>
-              <Ionicons name="lock-open-outline" size={16} color="#fff" />
-              <Text style={styles.unlockBtnText}>Unlock for ${Number(recipe.price_usd ?? 0).toFixed(2)}</Text>
+            <TouchableOpacity style={styles.unlockBtn} onPress={openPayModal}>
+              <Text style={styles.unlockBtnText}>{t('recipe.unlock_for_price', { price: Number(recipe.price_usd ?? 0).toFixed(2) })}</Text>
             </TouchableOpacity>
           </View>
         ) : (
@@ -376,20 +592,69 @@ export default function RecipeDetailScreen() {
                 </View>
                 <Text style={[styles.cardLabel, { color: colors.text, marginBottom: 0 }]}>{t('recipe.ingredients')} ({t('recipe.for')} {servings})</Text>
               </View>
-              {scaledIngredients.map((ing, i) => (
-                <TouchableOpacity key={i} style={styles.ingredientRow} onPress={() => toggleIngredient(i)} activeOpacity={0.6}>
-                  <IngredientIcon name={ing} size={36} />
-                  <Text style={[
-                    styles.ingredientText,
-                    { color: colors.subtext },
-                    checkedIngredients.has(i) && styles.ingredientTextChecked,
-                  ]}>{ing}</Text>
-                  <View style={[styles.checkbox, checkedIngredients.has(i) && styles.checkboxChecked]}>
-                    {checkedIngredients.has(i) && <Ionicons name="checkmark" size={12} color="#fff" />}
-                  </View>
-                </TouchableOpacity>
-              ))}
+              {scaledIngredients.map((ing, i) => {
+                const { amount, name } = splitIngredientAmount(ing);
+                const checked = checkedIngredients.has(i);
+                return (
+                  <TouchableOpacity key={i} style={styles.ingredientRow} onPress={() => toggleIngredient(i)} activeOpacity={0.6}>
+                    <IngredientIcon name={name || ing} size={36} />
+                    <View style={styles.ingredientTextWrap}>
+                      <Text
+                        style={[styles.ingredientAmount, { color: RED }, checked && styles.ingredientTextChecked]}
+                        numberOfLines={1}
+                      >
+                        {amount}
+                      </Text>
+                      <Text
+                        style={[styles.ingredientText, { color: colors.text }, checked && styles.ingredientTextChecked]}
+                        numberOfLines={1}
+                      >
+                        {name || ing}
+                      </Text>
+                    </View>
+                    <View style={[styles.checkbox, checked && styles.checkboxChecked]}>
+                      {checked && <Ionicons name="checkmark" size={12} color="#fff" />}
+                    </View>
+                  </TouchableOpacity>
+                );
+              })}
             </View>
+
+            {/* Timers — every step that names a time, at a glance, before
+                diving into the one-at-a-time guide below */}
+            {parsedSteps.some((s) => s.minutes.length > 0) && (
+              <View style={[styles.card, { backgroundColor: colors.card }]}>
+                <View style={styles.sectionHeader}>
+                  <View style={[styles.sectionIcon, { backgroundColor: RED + '22' }]}>
+                    <Ionicons name="time-outline" size={18} color={RED} />
+                  </View>
+                  <Text style={[styles.cardLabel, { color: colors.text, marginBottom: 0 }]}>{t('recipe.timers')}</Text>
+                </View>
+                {parsedSteps.map((step, i) => {
+                  if (step.minutes.length === 0) return null;
+                  const label = step.text.replace(/^[0-9០-៩]+\.\s*/, '');
+                  return (
+                    <TouchableOpacity
+                      key={i}
+                      style={styles.timerRow}
+                      onPress={() => setCurrentStep(i)}
+                      activeOpacity={0.6}
+                    >
+                      <View style={[styles.timerStepNum, { borderColor: RED }]}>
+                        <Text style={{ color: RED, fontSize: 12, fontWeight: '700' }}>{i + 1}</Text>
+                      </View>
+                      <Text style={[styles.timerStepText, { color: colors.text }]}>
+                        {label}
+                      </Text>
+                      <View style={styles.stepDurationPill}>
+                        <Text style={styles.stepDurationText}>{formatDuration(step.minutes[0])}</Text>
+                      </View>
+                    </TouchableOpacity>
+                  );
+                })}
+                <Text style={[styles.timersHint, { color: colors.subtext }]}>{t('recipe.timers_hint')}</Text>
+              </View>
+            )}
 
             {/* Step-by-step cooking guide — in-page card, one step at a time */}
             {parsedSteps.length > 0 && (
@@ -406,9 +671,29 @@ export default function RecipeDetailScreen() {
                   )}
                 </View>
 
-                  <StepAnimation technique={technique} />
+                {/* One segment per step — shows where you are and how much is left */}
+                <View style={styles.stepProgress}>
+                  {parsedSteps.map((_, i) => (
+                    <View
+                      key={i}
+                      style={[
+                        styles.stepProgressSeg,
+                        { backgroundColor: i <= currentStep ? RED : colors.border },
+                        i === currentStep && styles.stepProgressSegActive,
+                      ]}
+                    />
+                  ))}
+                </View>
 
-                  <IngredientChips ingredients={stepIngredients} />
+                <StepAnimation
+                  technique={technique}
+                  nextTechnique={nextTechnique}
+                  ingredients={stepIngredientMatches.map((m) => m.name)}
+                  ingredientLabels={stepIngredientMatches.map((m) => scaledIngredients[m.listIndex] ?? m.name)}
+                  stepText={`${activeStep?.text ?? ''} ${englishActiveStep?.text ?? ''}`}
+                  stepKey={currentStep}
+                  timerLabel={stepDuration}
+                />
 
                 <Text style={[styles.stepText, { color: colors.text }]}>
                   {highlightSegments.map((seg, i) => (
@@ -418,23 +703,10 @@ export default function RecipeDetailScreen() {
                   ))}
                 </Text>
 
-                <TouchableOpacity style={styles.readAloudBtn} onPress={() => activeStep && handleReadAloud(activeStep.text)}>
-                  <Ionicons name="volume-high-outline" size={16} color={RED} />
-                  <Text style={styles.readAloudText}>{t('recipe.read_aloud')}</Text>
-                </TouchableOpacity>
-
-                <View style={[styles.tipBox, { backgroundColor: RED + '10' }]}>
-                  <Ionicons name="bulb-outline" size={16} color={RED} />
-                  <Text style={[styles.tipText, { color: colors.subtext }]}>{techniqueTip}</Text>
-                </View>
-
-                {donenessCue && (
-                  <View style={[styles.tipBox, { backgroundColor: '#2E7D3215' }]}>
-                    <Ionicons name="checkmark-circle-outline" size={16} color="#2E7D32" />
-                    <Text style={[styles.tipText, { color: colors.subtext }]}>
-                      {isKhmer ? donenessCue.km : donenessCue.en}
-                    </Text>
-                  </View>
+                {glossaryTip && (
+                  <Text style={[styles.glossaryTipText, { color: colors.text, backgroundColor: colors.input }]}>
+                    {glossaryTip}
+                  </Text>
                 )}
 
                 <View style={styles.stepNavRow}>
@@ -443,16 +715,21 @@ export default function RecipeDetailScreen() {
                     onPress={() => setCurrentStep((s) => Math.max(0, s - 1))}
                     disabled={currentStep === 0}
                   >
-                    <Ionicons name="chevron-back" size={18} color={currentStep === 0 ? '#B0B0B0' : RED} />
                     <Text style={[styles.stepNavText, { color: currentStep === 0 ? '#B0B0B0' : RED }]}>{t('recipe.back')}</Text>
                   </TouchableOpacity>
                   <TouchableOpacity
-                    style={[styles.stepNavBtn, styles.stepNavBtnPrimary, currentStep === parsedSteps.length - 1 && styles.stepNavBtnDisabled]}
-                    onPress={() => setCurrentStep((s) => Math.min(parsedSteps.length - 1, s + 1))}
-                    disabled={currentStep === parsedSteps.length - 1}
+                    style={[styles.stepNavBtn, styles.stepNavBtnPrimary]}
+                    onPress={() => {
+                      if (currentStep === parsedSteps.length - 1) {
+                        setShowCompleteModal(true);
+                      } else {
+                        setCurrentStep((s) => Math.min(parsedSteps.length - 1, s + 1));
+                      }
+                    }}
                   >
-                    <Text style={styles.stepNavTextPrimary}>{t('recipe.next')}</Text>
-                    <Ionicons name="chevron-forward" size={18} color="#fff" />
+                    <Text style={styles.stepNavTextPrimary}>
+                      {currentStep === parsedSteps.length - 1 ? t('recipe.finish') : t('recipe.next')}
+                    </Text>
                   </TouchableOpacity>
                 </View>
               </View>
@@ -462,21 +739,21 @@ export default function RecipeDetailScreen() {
         <View style={{ height: 40 }} />
       </View>
 
-      {/* Fake payment confirmation — no real card is charged */}
+      {/* Bakong KHQR payment */}
       <Modal
         visible={showPayModal}
         transparent
         animationType="fade"
-        onRequestClose={() => !unlocking && setShowPayModal(false)}
+        onRequestClose={closePayModal}
       >
         <View style={styles.modalOverlay}>
           <View style={[styles.modalCard, { backgroundColor: colors.card }]}>
             <View style={styles.modalIconBg}>
-              <Ionicons name="card-outline" size={28} color={RED} />
+              <Ionicons name="qr-code-outline" size={28} color={RED} />
             </View>
-            <Text style={[styles.modalTitle, { color: colors.text }]}>Order Summary</Text>
+            <Text style={[styles.modalTitle, { color: colors.text }]}>{t('recipe_detail_screen.order_summary')}</Text>
             <Text style={[styles.modalRecipeTitle, { color: colors.subtext }]} numberOfLines={1}>
-              Review your order before paying
+              {t('recipe_detail_screen.review_order')}
             </Text>
 
             <View style={[styles.receiptBox, { borderColor: colors.border }]}>
@@ -487,7 +764,7 @@ export default function RecipeDetailScreen() {
                   </Text>
                   {recipe.chef_name && (
                     <Text style={[styles.receiptItemMeta, { color: colors.subtext }]}>
-                      by {recipe.chef_name}
+                      {t('my_orders_screen.by_chef', { name: recipe.chef_name })}
                     </Text>
                   )}
                 </View>
@@ -499,35 +776,228 @@ export default function RecipeDetailScreen() {
               <View style={[styles.receiptDivider, { backgroundColor: colors.border }]} />
 
               <View style={styles.receiptRow}>
-                <Text style={[styles.receiptTotalLabel, { color: colors.text }]}>Total</Text>
+                <Text style={[styles.receiptTotalLabel, { color: colors.text }]}>{t('recipe_detail_screen.total')}</Text>
                 <Text style={[styles.receiptTotalPrice, { color: RED }]}>
                   ${Number(recipe.price_usd ?? 0).toFixed(2)}
                 </Text>
               </View>
             </View>
 
-            <Text style={[styles.paymentMethodLabel, { color: colors.subtext }]}>Payment Method</Text>
-            <View style={styles.fakeCardRow}>
-              <Ionicons name="card" size={18} color={colors.subtext} />
-              <Text style={[styles.fakeCardText, { color: colors.subtext }]}>•••• •••• •••• 4242</Text>
+            <View style={[styles.payTabRow, { borderColor: colors.border }]}>
+              <TouchableOpacity
+                style={[styles.payTab, payMethod === 'bakong' && styles.payTabActive]}
+                onPress={() => setPayMethod('bakong')}
+              >
+                <Ionicons name="qr-code-outline" size={16} color={payMethod === 'bakong' ? '#fff' : colors.subtext} />
+                <Text style={[styles.payTabText, { color: payMethod === 'bakong' ? '#fff' : colors.subtext }]}>
+                  {t('recipe_detail_screen.pay_with_bakong')}
+                </Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.payTab, payMethod === 'card' && styles.payTabActive]}
+                onPress={() => setPayMethod('card')}
+              >
+                <Ionicons name="card-outline" size={16} color={payMethod === 'card' ? '#fff' : colors.subtext} />
+                <Text style={[styles.payTabText, { color: payMethod === 'card' ? '#fff' : colors.subtext }]}>
+                  {t('recipe_detail_screen.pay_with_card')}
+                </Text>
+              </TouchableOpacity>
             </View>
 
+            {payMethod === 'card' && (
+              <View style={styles.cardForm}>
+                <Text style={[styles.cardFieldLabel, { color: colors.subtext }]}>
+                  {t('recipe_detail_screen.card_number_label')}
+                </Text>
+                <TextInput
+                  style={[styles.cardInput, { color: colors.text, borderColor: colors.border }]}
+                  value={cardNumber}
+                  onChangeText={(v) => setCardNumber(formatCardNumber(v))}
+                  placeholder={t('recipe_detail_screen.card_number_placeholder')}
+                  placeholderTextColor={colors.subtext}
+                  keyboardType="number-pad"
+                  maxLength={19}
+                />
+
+                <View style={styles.cardRow}>
+                  <View style={{ flex: 1 }}>
+                    <Text style={[styles.cardFieldLabel, { color: colors.subtext }]}>
+                      {t('recipe_detail_screen.card_expiry_label')}
+                    </Text>
+                    <TextInput
+                      style={[styles.cardInput, { color: colors.text, borderColor: colors.border }]}
+                      value={cardExpiry}
+                      onChangeText={(v) => setCardExpiry(formatCardExpiry(v))}
+                      placeholder="MM/YY"
+                      placeholderTextColor={colors.subtext}
+                      keyboardType="number-pad"
+                      maxLength={5}
+                    />
+                  </View>
+                  <View style={{ flex: 1 }}>
+                    <Text style={[styles.cardFieldLabel, { color: colors.subtext }]}>
+                      {t('recipe_detail_screen.card_cvc_label')}
+                    </Text>
+                    <TextInput
+                      style={[styles.cardInput, { color: colors.text, borderColor: colors.border }]}
+                      value={cardCvc}
+                      onChangeText={(v) => setCardCvc(v.replace(/\D/g, '').slice(0, 4))}
+                      placeholder="CVC"
+                      placeholderTextColor={colors.subtext}
+                      keyboardType="number-pad"
+                      secureTextEntry
+                      maxLength={4}
+                    />
+                  </View>
+                </View>
+
+                <Text style={[styles.cardFieldLabel, { color: colors.subtext }]}>
+                  {t('recipe_detail_screen.card_name_label')}
+                </Text>
+                <TextInput
+                  style={[styles.cardInput, { color: colors.text, borderColor: colors.border }]}
+                  value={cardName}
+                  onChangeText={setCardName}
+                  placeholder={t('recipe_detail_screen.card_name_placeholder')}
+                  placeholderTextColor={colors.subtext}
+                  autoCapitalize="words"
+                />
+
+                {cardError && <Text style={styles.cardErrorText}>{cardError}</Text>}
+
+                <TouchableOpacity
+                  style={[styles.payBtn, cardProcessing && { opacity: 0.7 }]}
+                  onPress={handleCardPay}
+                  disabled={cardProcessing}
+                >
+                  {cardProcessing ? (
+                    <ActivityIndicator size="small" color="#fff" />
+                  ) : (
+                    <Text style={styles.payBtnText}>
+                      {t('recipe_detail_screen.pay_now_button', { amount: Number(recipe.price_usd ?? 0).toFixed(2) })}
+                    </Text>
+                  )}
+                </TouchableOpacity>
+              </View>
+            )}
+
+            {payMethod === 'bakong' && (
+            <View style={styles.khqrBox}>
+              {khqrStatus === 'loading' && (
+                <View style={styles.khqrStatusWrap}>
+                  <ActivityIndicator size="large" color={RED} />
+                </View>
+              )}
+
+              {khqrStatus === 'ready' && khqr && (
+                <>
+                  <View style={styles.khqrCodeWrap}>
+                    <QRCode value={khqr.qr} size={190} />
+                  </View>
+                  <Text style={[styles.khqrHint, { color: colors.text }]}>
+                    {t('recipe_detail_screen.scan_to_pay')}
+                  </Text>
+                  <View style={styles.khqrWaitingRow}>
+                    <ActivityIndicator size="small" color={RED} />
+                    <Text style={[styles.khqrWaitingText, { color: colors.subtext }]}>
+                      {t('recipe_detail_screen.waiting_for_payment')}
+                    </Text>
+                  </View>
+                </>
+              )}
+
+              {khqrStatus === 'expired' && (
+                <View style={styles.khqrStatusWrap}>
+                  <Ionicons name="time-outline" size={30} color={colors.subtext} />
+                  <Text style={[styles.khqrHint, { color: colors.text }]}>
+                    {t('recipe_detail_screen.code_expired')}
+                  </Text>
+                  <TouchableOpacity style={styles.khqrRetryBtn} onPress={requestKhqr}>
+                    <Text style={styles.khqrRetryBtnText}>{t('recipe_detail_screen.get_new_code')}</Text>
+                  </TouchableOpacity>
+                </View>
+              )}
+
+              {khqrStatus === 'error' && (
+                <View style={styles.khqrStatusWrap}>
+                  <Ionicons name="alert-circle-outline" size={30} color={RED} />
+                  <Text style={[styles.khqrHint, { color: colors.text }]}>
+                    {t('recipe_detail_screen.payment_setup_failed')}
+                  </Text>
+                  <TouchableOpacity style={styles.khqrRetryBtn} onPress={requestKhqr}>
+                    <Text style={styles.khqrRetryBtnText}>{t('common.retry')}</Text>
+                  </TouchableOpacity>
+                </View>
+              )}
+            </View>
+            )}
+
+            <TouchableOpacity style={styles.cancelBtn} onPress={closePayModal}>
+              <Text style={[styles.cancelBtnText, { color: colors.subtext }]}>{t('common.cancel')}</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Recipe complete */}
+      <Modal
+        visible={showCompleteModal}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setShowCompleteModal(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={[styles.modalCard, { backgroundColor: colors.card }]}>
+            <View style={styles.modalIconBg}>
+              <Ionicons name="checkmark-circle" size={30} color={RED} />
+            </View>
+            <Text style={[styles.modalTitle, { color: colors.text }]}>{t('recipe.complete_title')}</Text>
+            <Text style={[styles.modalRecipeTitle, { color: colors.subtext }]}>
+              {t('recipe.complete_message')}
+            </Text>
+
+            <TouchableOpacity style={styles.payBtn} onPress={() => setShowCompleteModal(false)}>
+              <Text style={styles.payBtnText}>{t('recipe.done')}</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Report reason */}
+      <Modal
+        visible={showReportModal}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setShowReportModal(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={[styles.modalCard, { backgroundColor: colors.card, alignItems: 'stretch' }]}>
+            <Text style={[styles.modalTitle, { color: colors.text, textAlign: 'center' }]}>
+              {t('recipe_detail_screen.report_title')}
+            </Text>
+            <Text style={[styles.modalRecipeTitle, { color: colors.subtext }]}>
+              {t('recipe_detail_screen.report_message')}
+            </Text>
+            <TextInput
+              style={[styles.reportReasonInput, { color: colors.text, borderColor: colors.border }]}
+              placeholder={t('recipe_detail_screen.report_reason_placeholder')}
+              placeholderTextColor={colors.subtext}
+              value={reportReason}
+              onChangeText={setReportReason}
+              multiline
+              autoFocus
+            />
             <TouchableOpacity
-              style={[styles.payBtn, unlocking && { opacity: 0.6 }]}
-              onPress={handleUnlock}
-              disabled={unlocking}
+              style={[styles.payBtn, reporting && { opacity: 0.6 }]}
+              onPress={submitReport}
+              disabled={reporting}
             >
               <Text style={styles.payBtnText}>
-                {unlocking ? 'Processing...' : `Pay $${Number(recipe.price_usd ?? 0).toFixed(2)}`}
+                {reporting ? t('upload_recipe_screen.submitting') : t('recipe_detail_screen.report_confirm')}
               </Text>
             </TouchableOpacity>
-
-            <TouchableOpacity
-              style={styles.cancelBtn}
-              onPress={() => setShowPayModal(false)}
-              disabled={unlocking}
-            >
-              <Text style={[styles.cancelBtnText, { color: colors.subtext }]}>Cancel</Text>
+            <TouchableOpacity style={styles.cancelBtn} onPress={() => setShowReportModal(false)}>
+              <Text style={{ color: colors.subtext, textAlign: 'center' }}>{t('common.cancel')}</Text>
             </TouchableOpacity>
           </View>
         </View>
@@ -574,25 +1044,34 @@ const styles = StyleSheet.create({
   },
    tasteTipText: { fontSize: 13, flex: 1, lineHeight: 22 },
   ingredientRow: { flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 10 },
+  timerRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 10, marginBottom: 10 },
+  timerStepNum: {
+    width: 22, height: 22, borderRadius: 11,
+    borderWidth: 1.5, alignItems: 'center', justifyContent: 'center',
+  },
+  timerStepText: { flex: 1, fontSize: 13.5 },
+  timersHint: { fontSize: 11, textAlign: 'center', marginTop: 2 },
   checkbox: {
     width: 20, height: 20, borderRadius: 6,
     borderWidth: 1.5, borderColor: '#D0D0D0',
     alignItems: 'center', justifyContent: 'center',
   },
   checkboxChecked: { backgroundColor: RED, borderColor: RED },
-    ingredientText: { fontSize: 14, flex: 1, lineHeight: 22 },
+    ingredientTextWrap: { flex: 1, flexDirection: 'row', alignItems: 'baseline', gap: 8 },
+  ingredientAmount: { fontSize: 13, fontWeight: '700', minWidth: 56, lineHeight: 22 },
+  ingredientText: { fontSize: 14, flex: 1, lineHeight: 22 },
   ingredientTextChecked: { textDecorationLine: 'line-through', opacity: 0.5 },
   stepCard: { borderRadius: 20, borderWidth: 1.5, padding: 20, marginBottom: 14 },
   stepHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 },
   stepCounter: { fontSize: 14, fontWeight: '700' },
+  stepProgress: { flexDirection: 'row', gap: 4, marginBottom: 14 },
+  stepProgressSeg: { flex: 1, height: 5, borderRadius: 3, opacity: 0.9 },
+  stepProgressSegActive: { opacity: 1, height: 7, marginTop: -1 },
   stepDurationPill: { flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: '#D6282815', paddingHorizontal: 10, paddingVertical: 4, borderRadius: 20 },
   stepDurationText: { fontSize: 12, fontWeight: '600', color: RED },
     stepText: { fontSize: 16, lineHeight: 30, marginBottom: 14, textAlign: 'center' },
   stepTextHighlight: { color: RED, fontWeight: '700' },
-  readAloudBtn: { flexDirection: 'row', alignSelf: 'center', alignItems: 'center', gap: 6, paddingHorizontal: 14, paddingVertical: 8, borderRadius: 20, borderWidth: 1, borderColor: RED, marginBottom: 14 },
-  readAloudText: { fontSize: 13, fontWeight: '600', color: RED },
-  tipBox: { flexDirection: 'row', alignItems: 'flex-start', gap: 8, padding: 12, borderRadius: 12, marginBottom: 10 },
-    tipText: { fontSize: 13, flex: 1, lineHeight: 22 },
+  glossaryTipText: { fontSize: 12.5, lineHeight: 18, marginBottom: 12, textAlign: 'center', padding: 10, borderRadius: 12 },
   stepNavRow: { flexDirection: 'row', gap: 10, marginTop: 6 },
   stepNavBtn: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, paddingVertical: 12, borderRadius: 14, borderWidth: 1.5 },
   stepNavBtnPrimary: { backgroundColor: RED, borderColor: RED },
@@ -620,11 +1099,29 @@ const styles = StyleSheet.create({
   receiptDivider: { height: 1, marginVertical: 12 },
   receiptTotalLabel: { fontSize: 15, fontWeight: '800' },
   receiptTotalPrice: { fontSize: 18, fontWeight: '800' },
-  paymentMethodLabel: { fontSize: 12, fontWeight: '600', alignSelf: 'flex-start', marginBottom: 8 },
-  fakeCardRow: { flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: '#F5F5F5', borderRadius: 12, paddingHorizontal: 14, paddingVertical: 12, width: '100%', marginBottom: 16 },
-  fakeCardText: { fontSize: 14, letterSpacing: 1 },
+  khqrBox: { width: '100%', alignItems: 'center', marginBottom: 16 },
+  khqrStatusWrap: { alignItems: 'center', justifyContent: 'center', gap: 10, paddingVertical: 20 },
+  khqrCodeWrap: { padding: 14, borderRadius: 16, backgroundColor: '#fff' },
+  khqrHint: { fontSize: 13, fontWeight: '600', textAlign: 'center', marginTop: 12 },
+  khqrWaitingRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 10 },
+  khqrWaitingText: { fontSize: 12.5 },
+  khqrRetryBtn: { marginTop: 6, backgroundColor: RED, paddingHorizontal: 18, paddingVertical: 10, borderRadius: 12 },
+  khqrRetryBtnText: { color: '#fff', fontWeight: '700', fontSize: 13 },
   payBtn: { backgroundColor: RED, borderRadius: 14, paddingVertical: 15, alignItems: 'center', justifyContent: 'center', width: '100%', marginBottom: 10 },
   payBtnText: { color: '#fff', fontWeight: '700', fontSize: 16 },
   cancelBtn: { paddingVertical: 6 },
+  reportReasonInput: {
+    borderWidth: 1.5, borderRadius: 12, padding: 12, fontSize: 13.5,
+    minHeight: 80, textAlignVertical: 'top', marginBottom: 14,
+  },
   cancelBtnText: { fontSize: 14, fontWeight: '600' },
+  payTabRow: { flexDirection: 'row', width: '100%', borderWidth: 1, borderRadius: 14, padding: 4, marginBottom: 16, gap: 4 },
+  payTab: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, paddingVertical: 10, borderRadius: 10 },
+  payTabActive: { backgroundColor: RED },
+  payTabText: { fontSize: 12.5, fontWeight: '700' },
+  cardForm: { width: '100%', marginBottom: 6 },
+  cardFieldLabel: { fontSize: 12, fontWeight: '600', marginBottom: 6, marginTop: 10 },
+  cardInput: { borderWidth: 1, borderRadius: 12, paddingHorizontal: 14, paddingVertical: 12, fontSize: 15 },
+  cardRow: { flexDirection: 'row', gap: 12 },
+  cardErrorText: { color: RED, fontSize: 12.5, fontWeight: '600', marginTop: 12, marginBottom: 4 },
 });

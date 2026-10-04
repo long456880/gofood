@@ -1,8 +1,7 @@
-import { Tabs } from 'expo-router';
+import { Tabs, useFocusEffect } from 'expo-router';
 import React, { useCallback, useState } from 'react';
 import { Text } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { useFocusEffect } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { apiFetch } from '@/lib/api-fetch';
 import { useSession } from '@/lib/supabase';
@@ -26,7 +25,15 @@ export default function TabLayout() {
     }, [])
   );
 
-  const showDashboardTab = accountType === 'chef' || session?.user.email === ADMIN_EMAIL;
+  const isAdmin = session?.user.email === ADMIN_EMAIL;
+  const isChef = accountType === 'chef';
+
+  // Chefs get their dashboard merged into the Home tab, so the separate
+  // Dashboard tab is only needed for admin tools.
+  const showDashboardTab = isAdmin;
+  // Favorites (saving recipes to cook) is a home-cook feature — chefs and
+  // admins don't browse/save recipes through this account.
+  const showFavoritesTab = !isChef && !isAdmin;
 
   return (
     <Tabs
@@ -73,6 +80,7 @@ export default function TabLayout() {
       <Tabs.Screen
         name="favorites"
         options={{
+          href: showFavoritesTab ? undefined : null,
           tabBarIcon: ({ color, focused }) => (
             <Ionicons name={focused ? 'heart' : 'heart-outline'} size={23} color={color} />
           ),
@@ -110,9 +118,6 @@ export default function TabLayout() {
           ),
         }}
       />
-
-      <Tabs.Screen name="recipes" options={{ href: null }} />
-      <Tabs.Screen name="explore" options={{ href: null }} />
     </Tabs>
   );
 }

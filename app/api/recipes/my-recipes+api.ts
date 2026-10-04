@@ -8,9 +8,10 @@ export async function GET(request: Request) {
   }
 
   const result = await db.query(
-        `SELECT id, title, image_url, status, price_usd, is_free, created_at, rejection_reason
+        `SELECT id, title, image_url, status, price_usd, is_free, created_at, rejection_reason, deleted_at
      FROM recipes
      WHERE chef_id = $1
+       AND NOT (status = 'deleted' AND deleted_at < now() - interval '3 days')
      ORDER BY created_at DESC`,
     [session.user.id]
   );

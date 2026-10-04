@@ -24,11 +24,13 @@ import { useCallback } from 'react';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 const RED = '#D62828';
+const ADMIN_EMAIL = 'feihengkimborat@gmail.com';
 
 type Profile = {
   username: string;
   avatar_url?: string;
   account_type?: string;
+  notifications_enabled?: boolean;
 };
 
 export default function ProfileScreen() {
@@ -53,7 +55,7 @@ export default function ProfileScreen() {
   const pickAndUploadAvatar = async () => {
     const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (!permission.granted) {
-      Alert.alert('Permission needed', 'Please allow photo access to change your profile picture.');
+      Alert.alert(t('profile_screen.avatar_permission_title'), t('profile_screen.avatar_permission_message'));
       return;
     }
 
@@ -76,28 +78,48 @@ export default function ProfileScreen() {
       });
       const data = await res.json();
       if (!res.ok) {
-        Alert.alert('Upload failed', data.error ?? 'Something went wrong');
+        Alert.alert(t('profile_screen.upload_failed'), data.error ?? t('common.something_wrong'));
         return;
       }
       setProfile((prev) => (prev ? { ...prev, avatar_url: data.avatar_url } : prev));
     } catch (err) {
-      Alert.alert('Upload failed', 'Please check your connection and try again.');
+      Alert.alert(t('profile_screen.upload_failed'), t('common.connection_error'));
     } finally {
       setUploadingAvatar(false);
     }
   };
 
-  const handleSignOut = () => {
+    const handleSignOut = () => {
     Alert.alert(t('profile.sign_out'), t('profile.sign_out_confirm'), [
       { text: t('profile.cancel'), style: 'cancel' },
       {
         text: t('profile.sign_out'),
         style: 'destructive',
         onPress: async () => {
-          await supabase.auth.signOut();
+          // 'local' clears this device's session straight away. The default
+          // ('global') waits on a server round-trip to revoke every session
+          // first, which is what made signing out take several seconds.
+          await supabase.auth.signOut({ scope: 'local' });
         },
       },
     ]);
+  };
+
+  const handleToggleNotifications = async (value: boolean) => {
+    setProfile((prev) => (prev ? { ...prev, notifications_enabled: value } : prev));
+    try {
+      const res = await apiFetch('/api/profile/notifications-toggle', {
+        method: 'POST',
+        body: JSON.stringify({ enabled: value }),
+      });
+      if (!res.ok) {
+        setProfile((prev) => (prev ? { ...prev, notifications_enabled: !value } : prev));
+        Alert.alert(t('common.failed'), t('profile_screen.notifications_update_failed'));
+      }
+    } catch {
+      setProfile((prev) => (prev ? { ...prev, notifications_enabled: !value } : prev));
+      Alert.alert(t('common.failed'), t('profile_screen.notifications_update_failed'));
+    }
   };
 
   if (loading) {
@@ -107,6 +129,10 @@ export default function ProfileScreen() {
       </View>
     );
   }
+
+  // Admin and chef accounts don't place orders, so favorites and order
+  // history are customer-only sections.
+  const isCustomer = profile?.account_type !== 'chef' && session?.user.email !== ADMIN_EMAIL;
 
   return (
     <ScrollView style={[styles.container, { backgroundColor: colors.background }]} showsVerticalScrollIndicator={false}>
@@ -134,7 +160,7 @@ export default function ProfileScreen() {
             <Ionicons name="camera" size={14} color={RED} />
           </View>
         </TouchableOpacity>
-        <Text style={styles.name}>{profile?.username ?? 'Chef'}</Text>
+        <Text style={styles.name}>{profile?.username ?? t('auth.chef')}</Text>
         <Text style={styles.email}>{session?.user.email}</Text>
         <TouchableOpacity
           style={styles.editButton}
@@ -147,29 +173,33 @@ export default function ProfileScreen() {
 
       {/* Menu Card */}
       <View style={[styles.card, styles.menuCardTop, { backgroundColor: colors.card }]}>
-        <TouchableOpacity style={styles.menuItem} onPress={() => router.push('/favorites')} activeOpacity={0.7}>
-          <View style={[styles.menuIcon, { backgroundColor: '#FDEDEC' }]}>
-            <Ionicons name="heart-outline" size={18} color={RED} />
-          </View>
-          <Text style={[styles.menuText, { color: colors.text }]}>{t('profile.favorites')}</Text>
-          <Ionicons name="chevron-forward" size={18} color={colors.subtext} />
-        </TouchableOpacity>
+        {isCustomer && (
+          <>
+            <TouchableOpacity style={styles.menuItem} onPress={() => router.push('/favorites')} activeOpacity={0.7}>
+              <View style={styles.menuIcon}>
+                <Ionicons name="heart" size={18} color={RED} />
+              </View>
+              <Text style={[styles.menuText, { color: colors.text }]}>{t('profile.favorites')}</Text>
+              <Ionicons name="chevron-forward" size={18} color={colors.subtext} />
+            </TouchableOpacity>
 
-        <View style={[styles.divider, { backgroundColor: colors.border }]} />
+            <View style={[styles.divider, { backgroundColor: colors.border }]} />
 
-        <TouchableOpacity style={styles.menuItem} onPress={() => router.push('/my-orders')} activeOpacity={0.7}>
-          <View style={[styles.menuIcon, { backgroundColor: '#FDEDEC' }]}>
-            <Ionicons name="receipt-outline" size={18} color={RED} />
-          </View>
-          <Text style={[styles.menuText, { color: colors.text }]}>{t('profile.my_orders')}</Text>
-          <Ionicons name="chevron-forward" size={18} color={colors.subtext} />
-        </TouchableOpacity>
+            <TouchableOpacity style={styles.menuItem} onPress={() => router.push('/my-orders')} activeOpacity={0.7}>
+              <View style={styles.menuIcon}>
+                <Ionicons name="receipt-outline" size={18} color={RED} />
+              </View>
+              <Text style={[styles.menuText, { color: colors.text }]}>{t('profile.my_orders')}</Text>
+              <Ionicons name="chevron-forward" size={18} color={colors.subtext} />
+            </TouchableOpacity>
 
-        <View style={[styles.divider, { backgroundColor: colors.border }]} />
+            <View style={[styles.divider, { backgroundColor: colors.border }]} />
+          </>
+        )}
 
         <TouchableOpacity style={styles.menuItem} onPress={() => router.push('/edit-profile')} activeOpacity={0.7}>
-          <View style={[styles.menuIcon, { backgroundColor: '#F7DBDA' }]}>
-            <Ionicons name="pencil-outline" size={18} color="#A61E1E" />
+          <View style={styles.menuIcon}>
+            <Ionicons name="person-outline" size={18} color={RED} />
           </View>
           <Text style={[styles.menuText, { color: colors.text }]}>{t('profile.edit_profile')}</Text>
           <Ionicons name="chevron-forward" size={18} color={colors.subtext} />
@@ -182,10 +212,12 @@ export default function ProfileScreen() {
           activeOpacity={0.7}
           onPress={() => i18n.changeLanguage(i18n.language === 'km' ? 'en' : 'km')}
         >
-          <View style={[styles.menuIcon, { backgroundColor: '#F2C9C8' }]}>
-            <Ionicons name="language-outline" size={18} color="#8B1A1A" />
+          <View style={styles.menuIcon}>
+            <Ionicons name="globe-outline" size={18} color={RED} />
           </View>
-          <Text style={[styles.menuText, { color: colors.text }]}>{t('profile.language')}</Text>
+          <Text style={[styles.menuText, { color: colors.text }]}>
+            {i18n.language === 'km' ? 'ភាសាខ្មែរ' : 'English'}
+          </Text>
           <Switch
             value={i18n.language === 'km'}
             onValueChange={(val) => { i18n.changeLanguage(val ? 'km' : 'en'); }}
@@ -198,8 +230,8 @@ export default function ProfileScreen() {
         <View style={[styles.divider, { backgroundColor: colors.border }]} />
 
         <TouchableOpacity style={styles.menuItem} activeOpacity={0.7} onPress={toggle}>
-          <View style={[styles.menuIcon, { backgroundColor: '#EFC0BF' }]}>
-            <Ionicons name="moon-outline" size={18} color="#6E0000" />
+          <View style={styles.menuIcon}>
+            <Ionicons name={dark ? 'moon' : 'sunny-outline'} size={18} color={RED} />
           </View>
           <Text style={[styles.menuText, { color: colors.text }]}>{t('profile.dark_mode')}</Text>
           <Switch
@@ -211,13 +243,49 @@ export default function ProfileScreen() {
           />
         </TouchableOpacity>
 
+        {session?.user.email !== ADMIN_EMAIL && (
+          <>
+            <View style={[styles.divider, { backgroundColor: colors.border }]} />
+
+            <TouchableOpacity style={styles.menuItem} activeOpacity={0.7} onPress={() => router.push('/support-chat')}>
+              <View style={styles.menuIcon}>
+                <Ionicons name="mail-outline" size={18} color={RED} />
+              </View>
+              <Text style={[styles.menuText, { color: colors.text }]}>{t('profile.contact_support')}</Text>
+              <Ionicons name="chevron-forward" size={18} color={colors.subtext} />
+            </TouchableOpacity>
+          </>
+        )}
+
+        <View style={[styles.divider, { backgroundColor: colors.border }]} />
+
+        <TouchableOpacity
+          style={styles.menuItem}
+          activeOpacity={0.7}
+          onPress={() => handleToggleNotifications(!(profile?.notifications_enabled ?? true))}
+        >
+          <View style={styles.menuIcon}>
+            <Ionicons name="notifications-outline" size={18} color={RED} />
+          </View>
+          <Text style={[styles.menuText, { color: colors.text }]}>{t('profile.notifications')}</Text>
+          <Switch
+            value={profile?.notifications_enabled ?? true}
+            onValueChange={handleToggleNotifications}
+            trackColor={{ false: '#ccc', true: RED }}
+            thumbColor="#FFFFFF"
+            pointerEvents="none"
+          />
+        </TouchableOpacity>
+
       </View>
 
-      {/* Sign Out */}
-      <TouchableOpacity style={styles.signOutButton} onPress={handleSignOut} activeOpacity={0.8}>
-        <Ionicons name="log-out-outline" size={20} color={RED} />
-        <Text style={styles.signOutText}>{t('profile.sign_out')}</Text>
-      </TouchableOpacity>
+      {/* Sign Out — its own grouped row, not a CTA button, so it reads as
+          part of the settings list rather than a bolted-on action */}
+      <View style={[styles.card, styles.signOutCard, { backgroundColor: colors.card }]}>
+        <TouchableOpacity style={styles.signOutRow} onPress={handleSignOut} activeOpacity={0.6}>
+          <Text style={styles.signOutText}>{t('profile.sign_out')}</Text>
+        </TouchableOpacity>
+      </View>
 
       <View style={{ height: 20 }} />
     </ScrollView>
@@ -257,7 +325,7 @@ const styles = StyleSheet.create({
   },
   avatarImg: { width: '100%', height: '100%' },
   avatarLoadingOverlay: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
     backgroundColor: 'rgba(0,0,0,0.4)',
     alignItems: 'center',
     justifyContent: 'center',
@@ -309,17 +377,7 @@ const styles = StyleSheet.create({
   },
   menuText: { flex: 1, fontSize: 15 },
   divider: { height: 1, marginLeft: 48, marginVertical: 2 },
-  signOutButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 8,
-    paddingVertical: 14,
-    borderRadius: 16,
-    borderWidth: 1.5,
-    borderColor: RED,
-    backgroundColor: '#FFF5F5',
-    marginHorizontal: 20,
-  },
+  signOutCard: { padding: 0, marginTop: -2 },
+  signOutRow: { paddingVertical: 15, alignItems: 'center', justifyContent: 'center' },
   signOutText: { color: RED, fontSize: 16, fontWeight: '600' },
 });

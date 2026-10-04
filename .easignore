@@ -1,0 +1,8 @@
+# Claude Code / skills tooling — not part of the app, and .claude/skills/*
+# contains symlinks that Windows can't recreate inside EAS's build archive.
+.claude/
+.agents/
+skills-lock.json
+
+# Brag video output — large media files, not needed for the app build.
+brag-output/

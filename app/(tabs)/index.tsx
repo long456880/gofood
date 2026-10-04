@@ -20,6 +20,7 @@ import { useTheme } from '@/lib/theme-context';
 import { useSession } from '@/lib/supabase';
 import { useTranslation } from 'react-i18next';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { UnreadBadge, useNotifications } from '@/components/NotificationProvider';
 
 const RED = '#D62828';
 const WARM_BG = '#FBF8F4';
@@ -30,6 +31,8 @@ type Recipe = {
   description: string;
   cuisine: string;
   image_url: string | null;
+  progress_image_1?: string | null;
+  progress_image_2?: string | null;
   is_free: boolean;
   point_cost: number;
   price_usd: number | string | null;
@@ -39,6 +42,22 @@ type Recipe = {
   chef_name?: string;
   avg_rating?: number | string;
   rating_count?: number | string;
+};
+
+type RecipeSales = {
+  id: string;
+  title: string;
+  image_url: string | null;
+  price_usd: number | string | null;
+  sales_count: number;
+  gross_revenue: number;
+  your_earnings: number;
+};
+
+type ChefDashboardData = {
+  total_earnings: number;
+  total_sales: number;
+  recipes: RecipeSales[];
 };
 
 const CUISINES = [
@@ -62,6 +81,7 @@ const CATEGORIES = [
   { label: 'Dessert', icon: 'ice-cream-outline', value: 'dessert' },
   { label: 'Salad', icon: 'leaf-outline', value: 'salad' },
   { label: 'Soup', icon: 'cafe-outline', value: 'soup' },
+  { label: 'Other', icon: 'ellipsis-horizontal-outline', value: 'other' },
 ];
 
 const MEAL_TYPES = ['breakfast', 'lunch', 'dinner', 'dessert'];
@@ -89,6 +109,7 @@ function getCuisineIcon(cuisine: string, category: string): keyof typeof Ionicon
 
 function FeaturedCard({ recipe }: { recipe: Recipe }) {
   const icon = getCuisineIcon(recipe.cuisine, recipe.category);
+  const { t } = useTranslation();
   return (
     <TouchableOpacity
       style={styles.featuredCard}
@@ -107,14 +128,13 @@ function FeaturedCard({ recipe }: { recipe: Recipe }) {
         style={styles.featuredOverlay}
       >
         <View style={styles.featuredTag}>
-          <Ionicons name="sparkles" size={11} color="#fff" />
-          <Text style={styles.featuredTagText}>Chef's Pick</Text>
+          <Text style={styles.featuredTagText}>{t('home.chefs_pick')}</Text>
         </View>
         <Text style={styles.featuredTitle} numberOfLines={1}>{recipe.title}</Text>
         <View style={styles.featuredBottomRow}>
           <Text style={styles.featuredCuisine}>{recipe.cuisine}</Text>
           <View style={styles.featuredCta}>
-            <Text style={styles.featuredCtaText}>View Recipe</Text>
+            <Text style={styles.featuredCtaText}>{t('recipe_detail_screen.view_recipe')}</Text>
             <Ionicons name="arrow-forward" size={13} color={RED} />
           </View>
         </View>
@@ -123,8 +143,19 @@ function FeaturedCard({ recipe }: { recipe: Recipe }) {
   );
 }
 
-function RecipeCard({ item, isOwned }: { item: Recipe; isOwned: boolean }) {
+function RecipeCard({
+  item,
+  isOwned,
+  liked,
+  onToggleLike,
+}: {
+  item: Recipe;
+  isOwned: boolean;
+  liked: boolean;
+  onToggleLike: (recipeId: string) => void;
+}) {
   const { colors } = useTheme();
+  const { t } = useTranslation();
   const ratingCount = Number(item.rating_count ?? 0);
   const avgRating = Number(item.avg_rating ?? 0);
   return (
@@ -135,23 +166,29 @@ function RecipeCard({ item, isOwned }: { item: Recipe; isOwned: boolean }) {
     >
       <View style={styles.recipeCardImage}>
         {item.image_url ? (
-          <Image
-            source={{ uri: item.image_url }}
-            style={styles.recipeCardImg}
-            contentFit="cover"
-          />
+          <Image source={{ uri: item.image_url }} style={styles.recipeCardCarousel} contentFit="cover" />
         ) : (
           <Ionicons name={getCuisineIcon(item.cuisine, item.category)} size={32} color={RED} />
         )}
+        <TouchableOpacity
+          style={styles.likeButton}
+          onPress={(e) => {
+            e.stopPropagation();
+            onToggleLike(item.id);
+          }}
+          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+        >
+          <Ionicons name={liked ? 'heart' : 'heart-outline'} size={16} color={liked ? RED : '#fff'} />
+        </TouchableOpacity>
         <View style={styles.badgeFloat}>
           {item.is_free ? (
             <View style={styles.freeBadge}>
-              <Text style={styles.freeBadgeText}>FREE</Text>
+              <Text style={styles.freeBadgeText}>{t('recipe_detail_screen.free_badge')}</Text>
             </View>
           ) : isOwned ? (
             <View style={[styles.freeBadge, { backgroundColor: '#3A3A3A' }]}>
               <Ionicons name="checkmark-circle" size={9} color="#fff" />
-              <Text style={styles.freeBadgeText}>OWNED</Text>
+              <Text style={styles.freeBadgeText}>{t('recipe_detail_screen.owned_badge')}</Text>
             </View>
           ) : (
             <View style={styles.pointBadge}>
@@ -183,7 +220,19 @@ function RecipeCard({ item, isOwned }: { item: Recipe; isOwned: boolean }) {
   );
 }
 
-function SectionRow({ title, data, unlockedIds }: { title: string; data: Recipe[]; unlockedIds: string[] }) {
+function SectionRow({
+  title,
+  data,
+  unlockedIds,
+  likedIds,
+  onToggleLike,
+}: {
+  title: string;
+  data: Recipe[];
+  unlockedIds: string[];
+  likedIds: string[];
+  onToggleLike: (recipeId: string) => void;
+}) {
   const { colors } = useTheme();
   if (data.length === 0) return null;
   return (
@@ -198,11 +247,154 @@ function SectionRow({ title, data, unlockedIds }: { title: string; data: Recipe[
         horizontal
         showsHorizontalScrollIndicator={false}
         contentContainerStyle={styles.horizontalList}
-        renderItem={({ item }) => <RecipeCard item={item} isOwned={unlockedIds.includes(item.id)} />}
+        renderItem={({ item }) => (
+          <RecipeCard
+            item={item}
+            isOwned={unlockedIds.includes(item.id)}
+            liked={likedIds.includes(item.id)}
+            onToggleLike={onToggleLike}
+          />
+        )}
       />
     </View>
   );
 }
+function ChefHome({
+  greeting,
+  userName,
+  dashboard,
+  refreshing,
+  onRefresh,
+  insets,
+}: {
+  greeting: string;
+  userName: string;
+  dashboard: ChefDashboardData | null;
+  refreshing: boolean;
+  onRefresh: () => void;
+  insets: { top: number };
+}) {
+  const { colors, dark } = useTheme();
+  const { t } = useTranslation();
+  const recipes = dashboard?.recipes ?? [];
+
+  return (
+    <ScrollView
+      style={[styles.container, { backgroundColor: dark ? colors.background : WARM_BG }]}
+      refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={RED} />}
+      showsVerticalScrollIndicator={false}
+    >
+      <View style={[styles.header, { paddingTop: insets.top + 14 }]}>
+        <View style={{ flex: 1 }}>
+          <Text style={[styles.greeting, { color: colors.text }]}>{greeting},</Text>
+          <Text style={[styles.userName, { color: RED }]}>{userName}</Text>
+        </View>
+        <TouchableOpacity style={styles.notifButton} onPress={() => router.push('/notifications')}>
+          <Ionicons name="notifications-outline" size={20} color={RED} />
+          <UnreadBadge />
+        </TouchableOpacity>
+      </View>
+
+      <View style={styles.chefQuickActionsRow}>
+        <TouchableOpacity
+          style={[styles.chefQuickAction, { backgroundColor: colors.card }]}
+          activeOpacity={0.85}
+          onPress={() => router.push('/upload-recipe')}
+        >
+          <View style={styles.chefQuickActionIcon}>
+            <Ionicons name="add-circle-outline" size={22} color={RED} />
+          </View>
+          <Text style={[styles.chefQuickActionText, { color: colors.text }]}>
+            {t('profile.upload_recipe')}
+          </Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={[styles.chefQuickAction, { backgroundColor: colors.card }]}
+          activeOpacity={0.85}
+          onPress={() => router.push('/my-recipes')}
+        >
+          <View style={styles.chefQuickActionIcon}>
+            <Ionicons name="list-outline" size={22} color={RED} />
+          </View>
+          <Text style={[styles.chefQuickActionText, { color: colors.text }]}>
+            {t('profile.my_recipes')}
+          </Text>
+        </TouchableOpacity>
+      </View>
+
+      <View style={styles.summaryRow}>
+        <View style={[styles.summaryCard, { backgroundColor: colors.card }]}>
+          <Ionicons name="cash-outline" size={22} color={RED} />
+          <Text style={[styles.summaryValue, { color: colors.text }]}>
+            ${(dashboard?.total_earnings ?? 0).toFixed(2)}
+          </Text>
+          <Text style={[styles.summaryLabel, { color: colors.subtext }]}>
+            {t('chef_dashboard_screen.total_earnings')}
+          </Text>
+        </View>
+        <View style={[styles.summaryCard, { backgroundColor: colors.card }]}>
+          <Ionicons name="bag-check-outline" size={22} color={RED} />
+          <Text style={[styles.summaryValue, { color: colors.text }]}>
+            {dashboard?.total_sales ?? 0}
+          </Text>
+          <Text style={[styles.summaryLabel, { color: colors.subtext }]}>
+            {t('chef_dashboard_screen.total_sales')}
+          </Text>
+        </View>
+      </View>
+
+      <View style={styles.sectionTitleRow}>
+        <View style={styles.sectionAccent} />
+        <Text style={[styles.sectionTitle, { color: colors.text }]}>
+          {t('chef_dashboard_screen.sales_by_recipe')}
+        </Text>
+      </View>
+
+      {recipes.length === 0 ? (
+        <View style={styles.chefEmpty}>
+          <Ionicons name="stats-chart-outline" size={44} color={colors.subtext} />
+          <Text style={[styles.chefEmptyText, { color: colors.subtext }]}>
+            {t('chef_dashboard_screen.no_sales')}
+          </Text>
+        </View>
+      ) : (
+        recipes.map((r) => (
+          <TouchableOpacity
+            key={r.id}
+            style={[styles.chefRecipeRow, { backgroundColor: colors.card }]}
+            onPress={() => router.push(`/recipe/${r.id}`)}
+            activeOpacity={0.85}
+          >
+            {r.image_url ? (
+              <Image source={{ uri: r.image_url }} style={styles.chefRecipeThumb} contentFit="cover" />
+            ) : (
+              <View style={[styles.chefRecipeThumb, styles.chefRecipeThumbFallback]}>
+                <Ionicons name="restaurant-outline" size={20} color={colors.subtext} />
+              </View>
+            )}
+            <View style={{ flex: 1 }}>
+              <Text style={[styles.chefRecipeTitle, { color: colors.text }]} numberOfLines={1}>
+                {r.title}
+              </Text>
+              <Text style={[styles.chefRecipeMeta, { color: colors.subtext }]}>
+                {t('chef_dashboard_screen.price_sold', {
+                  price: Number(r.price_usd ?? 0).toFixed(2),
+                  count: r.sales_count,
+                })}
+              </Text>
+            </View>
+            <Text style={[styles.chefRecipeEarnings, { color: RED }]}>
+              ${r.your_earnings.toFixed(2)}
+            </Text>
+          </TouchableOpacity>
+        ))
+      )}
+
+      <View style={{ height: 20 }} />
+    </ScrollView>
+  );
+}
+
 export default function HomeScreen() {
   const { colors, dark } = useTheme();
   const insets = useSafeAreaInsets();
@@ -215,7 +407,10 @@ export default function HomeScreen() {
   const [selectedCuisine, setSelectedCuisine] = useState<string | null>(null);
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
     const [unlockedIds, setUnlockedIds] = useState<string[]>([]);
+  const [likedIds, setLikedIds] = useState<string[]>([]);
   const [accountType, setAccountType] = useState<string | null>(null);
+  const [profileName, setProfileName] = useState<string | null>(null);
+  const [chefDashboard, setChefDashboard] = useState<ChefDashboardData | null>(null);
 
   const fetchRecipes = useCallback(async () => {
     try {
@@ -233,27 +428,80 @@ export default function HomeScreen() {
       setUnlockedIds(data);
     } catch { }
   }, []);
-  const fetchProfile = useCallback(async () => {
+  const fetchLiked = useCallback(async () => {
     try {
-      const res = await apiFetch('/api/profile');
+      const res = await apiFetch('/api/favorites');
       const data = await res.json();
-      setAccountType(data.account_type ?? null);
+      setLikedIds(Array.isArray(data) ? data.map((r: Recipe) => r.id) : []);
+    } catch { }
+  }, []);
+  const fetchChefDashboard = useCallback(async () => {
+    try {
+      const res = await apiFetch('/api/chef/dashboard');
+      if (res.status === 403) return;
+      const data = await res.json();
+      setChefDashboard(data);
     } catch { }
   }, []);
 
-    useFocusEffect(
+  // Chef accounts get a sales dashboard instead of the recipe-browsing feed,
+  // so we only fetch what each account type actually needs.
+  const loadHome = useCallback(async () => {
+    try {
+      const res = await apiFetch('/api/profile');
+      const data = await res.json();
+      const type = data.account_type ?? null;
+      setAccountType(type);
+      // Edit Profile saves the name to the profile row, not the sign-in
+      // session, so the greeting has to read it from here to stay current.
+      setProfileName(data.username ?? null);
+      if (type === 'chef') {
+        await fetchChefDashboard();
+      } else {
+        await Promise.all([fetchRecipes(), fetchUnlocked(), fetchLiked()]);
+      }
+    } catch { }
+  }, [fetchChefDashboard, fetchRecipes, fetchUnlocked, fetchLiked]);
+
+  const { refresh: refreshUnread } = useNotifications();
+
+  useFocusEffect(
     useCallback(() => {
-      fetchRecipes().finally(() => setLoading(false));
-      fetchUnlocked();
-      fetchProfile();
-    }, [fetchRecipes, fetchUnlocked, fetchProfile])
+      loadHome().finally(() => setLoading(false));
+      refreshUnread();
+    }, [loadHome, refreshUnread])
   );
 
   const onRefresh = async () => {
     setRefreshing(true);
-    await fetchRecipes();
-    await fetchUnlocked();
+    await loadHome();
     setRefreshing(false);
+  };
+
+  const handleToggleLike = (recipeId: string) => {
+    const wasLiked = likedIds.includes(recipeId);
+    setLikedIds((prev) =>
+      wasLiked ? prev.filter((id) => id !== recipeId) : [...prev, recipeId]
+    );
+    apiFetch('/api/favorites', {
+      method: 'POST',
+      body: JSON.stringify({ recipeId }),
+    })
+      .then((res) => res.json())
+      .then((data) => {
+        if (data.favorited === undefined) return;
+        setLikedIds((prev) => {
+          const has = prev.includes(recipeId);
+          if (data.favorited && !has) return [...prev, recipeId];
+          if (!data.favorited && has) return prev.filter((id) => id !== recipeId);
+          return prev;
+        });
+      })
+      .catch(() => {
+        setLikedIds((prev) =>
+          wasLiked ? [...prev, recipeId] : prev.filter((id) => id !== recipeId)
+        );
+      });
   };
 
   const filtered = recipes.filter((r) => {
@@ -263,19 +511,38 @@ export default function HomeScreen() {
     return matchSearch && matchCuisine && matchCategory;
   });
 
-  const getHour = () => new Date().getHours();
-  const greeting = getHour() < 12
+  const hour = new Date().getHours();
+  // Hour 0-4 is still the middle of the night, not "morning" — without this
+  // branch `< 12` swallowed midnight through 4am into "Good Morning".
+  const greeting = hour < 5
+    ? t('home.greeting_night')
+    : hour < 12
     ? t('home.greeting_morning')
-    : getHour() < 17
+    : hour < 17
     ? t('home.greeting_afternoon')
-    : t('home.greeting_evening');
-  const userName = session?.user.user_metadata?.name ?? 'Chef';
+    : hour < 22
+    ? t('home.greeting_evening')
+    : t('home.greeting_night');
+  const userName = profileName ?? session?.user.user_metadata?.name ?? 'Chef';
 
   if (loading) {
     return (
       <View style={[styles.center, { backgroundColor: WARM_BG }]}>
         <ActivityIndicator size="large" color={RED} />
       </View>
+    );
+  }
+
+  if (accountType === 'chef') {
+    return (
+      <ChefHome
+        greeting={greeting}
+        userName={userName}
+        dashboard={chefDashboard}
+        refreshing={refreshing}
+        onRefresh={onRefresh}
+        insets={insets}
+      />
     );
   }
 
@@ -295,28 +562,11 @@ export default function HomeScreen() {
           <Text style={[styles.greeting, { color: colors.text }]}>{greeting},</Text>
           <Text style={[styles.userName, { color: RED }]}>{userName}</Text>
         </View>
-                <TouchableOpacity style={styles.notifButton} onPress={() => router.push('/notifications')}>
+        <TouchableOpacity style={styles.notifButton} onPress={() => router.push('/notifications')}>
           <Ionicons name="notifications-outline" size={20} color={RED} />
+          <UnreadBadge />
         </TouchableOpacity>
       </View>
-
-      {/* Chef upload banner — only shown to chef accounts */}
-      {accountType === 'chef' && (
-        <TouchableOpacity
-          style={styles.chefBanner}
-          activeOpacity={0.9}
-          onPress={() => router.push('/upload-recipe')}
-        >
-          <View style={styles.chefBannerIconBg}>
-            <Ionicons name="restaurant-outline" size={22} color="#fff" />
-          </View>
-          <View style={{ flex: 1 }}>
-            <Text style={styles.chefBannerTitle}>Share Your Recipe</Text>
-            <Text style={styles.chefBannerSubtitle}>Upload a recipe and earn 70% commission</Text>
-          </View>
-          <Ionicons name="add-circle" size={30} color="#fff" />
-        </TouchableOpacity>
-      )}
 
       {/* Search */}
       <View style={styles.searchWrap}>
@@ -412,8 +662,8 @@ export default function HomeScreen() {
         )}
       />
 
-      <SectionRow title={t('home.free_recipes')} data={freeRecipes} unlockedIds={unlockedIds} />
-      <SectionRow title={t('home.premium_recipes')} data={lockedRecipes} unlockedIds={unlockedIds} />
+      <SectionRow title={t('home.free_recipes')} data={freeRecipes} unlockedIds={unlockedIds} likedIds={likedIds} onToggleLike={handleToggleLike} />
+      <SectionRow title={t('home.premium_recipes')} data={lockedRecipes} unlockedIds={unlockedIds} likedIds={likedIds} onToggleLike={handleToggleLike} />
 
       {/* Meal Type Sections */}
       {MEAL_TYPES.map((meal) => {
@@ -423,6 +673,8 @@ export default function HomeScreen() {
             title={t(`home.${meal}`)}
             data={filtered.filter((r) => r.meal_type === meal)}
             unlockedIds={unlockedIds}
+            likedIds={likedIds}
+            onToggleLike={handleToggleLike}
           />
         );
       })}
@@ -458,31 +710,6 @@ const styles = StyleSheet.create({
     elevation: 2,
   },
     searchWrap: { paddingHorizontal: 20, marginBottom: 18 },
-  chefBanner: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-    backgroundColor: RED,
-    marginHorizontal: 20,
-    marginBottom: 18,
-    padding: 14,
-    borderRadius: 18,
-    shadowColor: RED,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.25,
-    shadowRadius: 8,
-    elevation: 4,
-  },
-  chefBannerIconBg: {
-    width: 44,
-    height: 44,
-    borderRadius: 14,
-    backgroundColor: 'rgba(255,255,255,0.2)',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  chefBannerTitle: { color: '#fff', fontSize: 15, fontWeight: '800', marginBottom: 2 },
-  chefBannerSubtitle: { color: 'rgba(255,255,255,0.85)', fontSize: 12 },
   searchBox: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -578,6 +805,17 @@ const styles = StyleSheet.create({
     position: 'relative',
   },
   badgeFloat: { position: 'absolute', top: 8, right: 8 },
+  likeButton: {
+    position: 'absolute',
+    top: 8,
+    left: 8,
+    width: 26,
+    height: 26,
+    borderRadius: 13,
+    backgroundColor: '#00000044',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   recipeCardBody: { padding: 11 },
   recipeCardTitle: { fontSize: 13.5, fontWeight: '700', marginBottom: 3 },
   recipeCardMetaRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 2 },
@@ -605,5 +843,47 @@ const styles = StyleSheet.create({
     gap: 3,
   },
   pointBadgeText: { color: '#fff', fontSize: 10, fontWeight: '700' },
-  recipeCardImg: { width: '100%', height: '100%' },
+  recipeCardCarousel: { width: '100%', height: '100%' },
+  chefQuickActionsRow: { flexDirection: 'row', gap: 12, paddingHorizontal: 20, marginBottom: 20 },
+  chefQuickAction: {
+    flex: 1,
+    alignItems: 'center',
+    gap: 8,
+    paddingVertical: 16,
+    borderRadius: 18,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.06,
+    shadowRadius: 8,
+    elevation: 2,
+  },
+  chefQuickActionIcon: {
+    width: 40,
+    height: 40,
+    borderRadius: 14,
+    backgroundColor: '#FDEDEC',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  chefQuickActionText: { fontSize: 13, fontWeight: '700' },
+  summaryRow: { flexDirection: 'row', gap: 12, paddingHorizontal: 20, marginBottom: 22 },
+  summaryCard: { flex: 1, borderRadius: 18, padding: 16, alignItems: 'flex-start', gap: 6 },
+  summaryValue: { fontSize: 22, fontWeight: '800' },
+  summaryLabel: { fontSize: 12 },
+  chefEmpty: { alignItems: 'center', justifyContent: 'center', gap: 12, marginTop: 40, paddingHorizontal: 40 },
+  chefEmptyText: { fontSize: 13, textAlign: 'center' },
+  chefRecipeRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    marginHorizontal: 20,
+    marginBottom: 12,
+    borderRadius: 16,
+    padding: 12,
+  },
+  chefRecipeThumb: { width: 50, height: 50, borderRadius: 12 },
+  chefRecipeThumbFallback: { alignItems: 'center', justifyContent: 'center', backgroundColor: '#F0F0F0' },
+  chefRecipeTitle: { fontSize: 14, fontWeight: '700', marginBottom: 3 },
+  chefRecipeMeta: { fontSize: 12 },
+  chefRecipeEarnings: { fontSize: 15, fontWeight: '800' },
 });

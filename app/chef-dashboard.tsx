@@ -10,6 +10,7 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { Image } from 'expo-image';
 import { useRouter, useFocusEffect } from 'expo-router';
+import { useTranslation } from 'react-i18next';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { apiFetch } from '@/lib/api-fetch';
 import { useTheme } from '@/lib/theme-context';
@@ -36,6 +37,7 @@ export default function ChefDashboardScreen() {
   const router = useRouter();
   const { colors } = useTheme();
   const insets = useSafeAreaInsets();
+  const { t } = useTranslation();
   const [data, setData] = useState<DashboardData | null>(null);
   const [loading, setLoading] = useState(true);
   const [forbidden, setForbidden] = useState(false);
@@ -67,10 +69,10 @@ export default function ChefDashboardScreen() {
       <View style={[styles.center, { backgroundColor: colors.background }]}>
         <Ionicons name="lock-closed-outline" size={40} color={colors.subtext} />
         <Text style={[styles.deniedText, { color: colors.subtext }]}>
-          This dashboard is only available for chef accounts.
+          {t('chef_dashboard_screen.denied')}
         </Text>
         <TouchableOpacity onPress={() => router.back()} style={styles.deniedBtn}>
-          <Text style={styles.deniedBtnText}>Go Back</Text>
+          <Text style={styles.deniedBtnText}>{t('admin_review_screen.go_back')}</Text>
         </TouchableOpacity>
       </View>
     );
@@ -94,34 +96,34 @@ export default function ChefDashboardScreen() {
         <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
           <Ionicons name="chevron-back" size={24} color={colors.text} />
         </TouchableOpacity>
-                <Text style={[styles.headerTitle, { color: colors.text }]}>Sales Dashboard</Text>
+                <Text style={[styles.headerTitle, { color: colors.text }]}>{t('chef_dashboard_screen.title')}</Text>
         <View style={{ width: 40 }} />
       </View>
 
       <Text style={[styles.pageDescription, { color: colors.subtext }]}>
-        Your earnings from recipes you've sold, as a chef.
+        {t('chef_dashboard_screen.description')}
       </Text>
 
       <View style={styles.summaryRow}>
-        <View style={[styles.summaryCard, { backgroundColor: RED }]}>
-          <Ionicons name="cash-outline" size={22} color="#fff" />
-          <Text style={styles.summaryValueLight}>${data.total_earnings.toFixed(2)}</Text>
-          <Text style={styles.summaryLabelLight}>Total Earnings</Text>
+        <View style={[styles.summaryCard, { backgroundColor: colors.card }]}>
+          <Ionicons name="cash-outline" size={22} color={RED} />
+          <Text style={[styles.summaryValue, { color: colors.text }]}>${data.total_earnings.toFixed(2)}</Text>
+          <Text style={[styles.summaryLabel, { color: colors.subtext }]}>{t('chef_dashboard_screen.total_earnings')}</Text>
         </View>
         <View style={[styles.summaryCard, { backgroundColor: colors.card }]}>
           <Ionicons name="bag-check-outline" size={22} color={RED} />
           <Text style={[styles.summaryValue, { color: colors.text }]}>{data.total_sales}</Text>
-          <Text style={[styles.summaryLabel, { color: colors.subtext }]}>Total Sales</Text>
+          <Text style={[styles.summaryLabel, { color: colors.subtext }]}>{t('chef_dashboard_screen.total_sales')}</Text>
         </View>
       </View>
 
-      <Text style={[styles.sectionTitle, { color: colors.text }]}>Sales by Recipe</Text>
+      <Text style={[styles.sectionTitle, { color: colors.text }]}>{t('chef_dashboard_screen.sales_by_recipe')}</Text>
 
       {data.recipes.length === 0 ? (
         <View style={styles.empty}>
           <Ionicons name="stats-chart-outline" size={44} color={colors.subtext} />
           <Text style={[styles.emptyText, { color: colors.subtext }]}>
-            No paid recipes yet, or none have sold so far.
+            {t('chef_dashboard_screen.no_sales')}
           </Text>
         </View>
       ) : (
@@ -144,7 +146,7 @@ export default function ChefDashboardScreen() {
                 {r.title}
               </Text>
               <Text style={[styles.recipeMeta, { color: colors.subtext }]}>
-                ${Number(r.price_usd ?? 0).toFixed(2)} • {r.sales_count} sold
+                {t('chef_dashboard_screen.price_sold', { price: Number(r.price_usd ?? 0).toFixed(2), count: r.sales_count })}
               </Text>
             </View>
             <Text style={[styles.recipeEarnings, { color: RED }]}>
@@ -170,9 +172,7 @@ const styles = StyleSheet.create({
   summaryRow: { flexDirection: 'row', gap: 12, marginHorizontal: 20, marginBottom: 22 },
   summaryCard: { flex: 1, borderRadius: 18, padding: 16, alignItems: 'flex-start', gap: 6 },
   summaryValue: { fontSize: 22, fontWeight: '800' },
-  summaryValueLight: { fontSize: 22, fontWeight: '800', color: '#fff' },
   summaryLabel: { fontSize: 12 },
-  summaryLabelLight: { fontSize: 12, color: 'rgba(255,255,255,0.85)' },
   sectionTitle: { fontSize: 16, fontWeight: '700', marginHorizontal: 20, marginBottom: 10 },
   empty: { alignItems: 'center', justifyContent: 'center', gap: 12, marginTop: 40, paddingHorizontal: 40 },
   emptyText: { fontSize: 13, textAlign: 'center' },

@@ -10,6 +10,7 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { Image } from 'expo-image';
 import { useRouter, useFocusEffect } from 'expo-router';
+import { useTranslation } from 'react-i18next';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { apiFetch } from '@/lib/api-fetch';
 import { useTheme } from '@/lib/theme-context';
@@ -36,6 +37,7 @@ export default function MyOrdersScreen() {
   const router = useRouter();
   const { colors } = useTheme();
   const insets = useSafeAreaInsets();
+  const { t } = useTranslation();
   const [orders, setOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -77,23 +79,23 @@ export default function MyOrdersScreen() {
         <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
           <Ionicons name="chevron-back" size={24} color={colors.text} />
         </TouchableOpacity>
-                <Text style={[styles.headerTitle, { color: colors.text }]}>My Orders</Text>
+                <Text style={[styles.headerTitle, { color: colors.text }]}>{t('my_orders_screen.title')}</Text>
         <View style={{ width: 40 }} />
       </View>
 
       <Text style={[styles.pageDescription, { color: colors.subtext }]}>
-        Recipes you've bought, as a buyer.
+        {t('my_orders_screen.description')}
       </Text>
 
       {orders.length > 0 && (
         <View style={[styles.summaryCard, { backgroundColor: colors.card }]}>
           <View>
-            <Text style={[styles.summaryLabel, { color: colors.subtext }]}>Total Recipes Bought</Text>
+            <Text style={[styles.summaryLabel, { color: colors.subtext }]}>{t('my_orders_screen.total_bought')}</Text>
             <Text style={[styles.summaryValue, { color: colors.text }]}>{orders.length}</Text>
           </View>
           <View style={styles.summaryDivider} />
           <View>
-            <Text style={[styles.summaryLabel, { color: colors.subtext }]}>Total Spent</Text>
+            <Text style={[styles.summaryLabel, { color: colors.subtext }]}>{t('my_orders_screen.total_spent')}</Text>
             <Text style={[styles.summaryValue, { color: RED }]}>${total.toFixed(2)}</Text>
           </View>
         </View>
@@ -103,7 +105,7 @@ export default function MyOrdersScreen() {
         <View style={styles.empty}>
           <Ionicons name="receipt-outline" size={48} color={colors.subtext} />
           <Text style={[styles.emptyText, { color: colors.subtext }]}>
-            You haven't bought any recipes yet.
+            {t('my_orders_screen.empty')}
           </Text>
         </View>
       ) : (
@@ -126,7 +128,7 @@ export default function MyOrdersScreen() {
                 {order.title}
               </Text>
               <Text style={[styles.cardMeta, { color: colors.subtext }]}>
-                {order.cuisine}{order.chef_name ? ` • by ${order.chef_name}` : ''}
+                {order.cuisine}{order.chef_name ? ` • ${t('my_orders_screen.by_chef', { name: order.chef_name })}` : ''}
               </Text>
               <Text style={[styles.cardDate, { color: colors.subtext }]}>
                 {formatDate(order.unlocked_at)}

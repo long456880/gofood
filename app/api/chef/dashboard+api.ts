@@ -34,7 +34,7 @@ export async function GET(request: Request) {
     price_usd: r.price_usd,
     sales_count: Number(r.sales_count),
     gross_revenue: Number(r.gross_revenue),
-    your_earnings: Math.round(Number(r.gross_revenue) * 0.7 * 100) / 100,
+    your_earnings: Math.round(Number(r.gross_revenue) * 0.9 * 100) / 100,
   }));
 
   const totalSales = recipes.reduce((sum, r) => sum + r.sales_count, 0);

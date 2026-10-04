@@ -43,3 +43,9 @@ app-example
 /android
 
 .env
+
+# local tooling / artifacts
+/gofood-project.zip
+/brag-output/
+/.agents/
+/.claude/skills/

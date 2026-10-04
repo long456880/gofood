@@ -29,9 +29,9 @@ export async function POST(request: Request, { id }: Record<string, string>) {
       [session.user.id, id]
     );
 
-    // Chef commission: 70% of the price goes to whoever created the recipe
+    // Chef commission: 90% of the price goes to whoever created the recipe
     if (recipe.chef_id) {
-      const chefCut = Math.round(Number(recipe.price_usd) * 0.7 * 100) / 100;
+      const chefCut = Math.round(Number(recipe.price_usd) * 0.9 * 100) / 100;
       await client.query(
         `UPDATE profiles SET earnings_usd = earnings_usd + $1 WHERE id = $2`,
         [chefCut, recipe.chef_id]

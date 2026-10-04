@@ -9,9 +9,9 @@ import {
   KeyboardAvoidingView,
   Platform,
   ScrollView,
-  Dimensions,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { Image } from 'expo-image';
 import { supabase } from '@/lib/supabase';
 import { signInWithGoogle } from '@/lib/google-auth';
 import { apiFetch } from '@/lib/api-fetch';
@@ -19,7 +19,6 @@ import { router } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 
 const RED = '#D62828';
-const { width } = Dimensions.get('window');
 
 type AccountType = 'home_cook' | 'chef';
 
@@ -32,10 +31,15 @@ export default function SignUpScreen() {
   const [loading, setLoading] = useState(false);
   const [googleLoading, setGoogleLoading] = useState(false);
   const [accountType, setAccountType] = useState<AccountType>('home_cook');
+  const [agreedChefTerms, setAgreedChefTerms] = useState(false);
 
     const handleSignUp = async () => {
+    if (accountType === 'chef' && !agreedChefTerms) {
+      Alert.alert(t('auth.chef_terms_required_title'), t('auth.chef_terms_required_message'));
+      return;
+    }
     setLoading(true);
-    const { error } = await supabase.auth.signUp({
+    const { data, error } = await supabase.auth.signUp({
       email,
       password,
       options: { data: { name } },
@@ -47,6 +51,17 @@ export default function SignUpScreen() {
       return;
     }
 
+    // Supabase returns a success response with no error even when the email
+    // is already taken (by design, so a sign-up form can't be used to probe
+    // which emails exist) — an empty `identities` array is the only signal
+    // that nothing was actually created. Left unchecked, this reads as a
+    // successful sign-up with no password ever attached to the account.
+    if (data.user && data.user.identities && data.user.identities.length === 0) {
+      setLoading(false);
+      Alert.alert(t('auth.sign_up_failed'), t('auth.email_already_registered'));
+      return;
+    }
+
     try {
       await apiFetch('/api/profile/account-type', {
         method: 'POST',
@@ -54,10 +69,7 @@ export default function SignUpScreen() {
       });
     } catch (err) {
       console.warn('Failed to save account type:', err);
-      Alert.alert(
-        'Account created',
-        "Your account was created, but we couldn't save whether you're a Chef or Home Cook. Please try editing your profile, or contact support."
-      );
+      Alert.alert(t('auth.account_created'), t('auth.account_type_save_failed'));
     }
 
     setLoading(false);
@@ -72,7 +84,7 @@ export default function SignUpScreen() {
       }
     } catch (err) {
       console.log('Google sign-up error (thrown exception):', err);
-      Alert.alert(t('auth.sign_up_failed'), 'Something went wrong with Google sign-in.');
+      Alert.alert(t('auth.sign_up_failed'), t('auth.google_error'));
     } finally {
       setGoogleLoading(false);
     }
@@ -90,17 +102,21 @@ export default function SignUpScreen() {
           <View style={styles.circle2} />
           <View style={styles.logoContainer}>
             <View style={styles.logoIcon}>
-              <Ionicons name="restaurant" size={36} color={RED} />
+              <Image
+                source={require('../assets/images/gofood-hat.png')}
+                style={styles.logoHat}
+                contentFit="contain"
+              />
             </View>
             <Text style={styles.logoText}>GoFood</Text>
-            <Text style={styles.logoTagline}>Join millions of home chefs</Text>
+            <Text style={styles.logoTagline}>{t('auth.sign_up_tagline')}</Text>
           </View>
         </View>
 
         {/* Form */}
         <View style={styles.formSection}>
           <Text style={styles.formTitle}>{t('auth.create_account')}</Text>
-          <Text style={styles.formSubtitle}>Start your cooking journey today</Text>
+          <Text style={styles.formSubtitle}>{t('auth.sign_up_subtitle')}</Text>
 
           {/* Account type selection */}
           <Text style={styles.label}>{t('auth.account_type')}</Text>
@@ -110,13 +126,6 @@ export default function SignUpScreen() {
               onPress={() => setAccountType('home_cook')}
               activeOpacity={0.8}
             >
-              <View style={[styles.roleIconBg, accountType === 'home_cook' && styles.roleIconBgActive]}>
-                <Ionicons
-                  name="home-outline"
-                  size={22}
-                  color={accountType === 'home_cook' ? '#FFFFFF' : RED}
-                />
-              </View>
               <Text style={[styles.roleTitle, accountType === 'home_cook' && styles.roleTitleActive]}>
                 {t('auth.home_cook')}
               </Text>
@@ -130,13 +139,6 @@ export default function SignUpScreen() {
               onPress={() => setAccountType('chef')}
               activeOpacity={0.8}
             >
-              <View style={[styles.roleIconBg, accountType === 'chef' && styles.roleIconBgActive]}>
-                <Ionicons
-                  name="ribbon-outline"
-                  size={22}
-                  color={accountType === 'chef' ? '#FFFFFF' : RED}
-                />
-              </View>
               <Text style={[styles.roleTitle, accountType === 'chef' && styles.roleTitleActive]}>
                 {t('auth.chef')}
               </Text>
@@ -145,6 +147,19 @@ export default function SignUpScreen() {
               </Text>
             </TouchableOpacity>
           </View>
+
+          {accountType === 'chef' && (
+            <TouchableOpacity
+              style={styles.chefTermsBox}
+              onPress={() => setAgreedChefTerms((v) => !v)}
+              activeOpacity={0.8}
+            >
+              <View style={[styles.checkbox, agreedChefTerms && styles.checkboxChecked]}>
+                {agreedChefTerms && <Ionicons name="checkmark" size={14} color="#fff" />}
+              </View>
+              <Text style={styles.chefTermsText}>{t('auth.chef_terms_text')}</Text>
+            </TouchableOpacity>
+          )}
 
           <Text style={styles.label}>{t('auth.name')}</Text>
           <View style={styles.inputRow}>
@@ -198,12 +213,11 @@ export default function SignUpScreen() {
             <Text style={styles.buttonText}>
               {loading ? t('auth.creating') : t('auth.sign_up')}
             </Text>
-            {!loading && <Ionicons name="arrow-forward" size={20} color="#FFFFFF" />}
           </TouchableOpacity>
 
           <View style={styles.dividerRow}>
             <View style={styles.divider} />
-            <Text style={styles.dividerText}>or</Text>
+            <Text style={styles.dividerText}>{t('auth.or')}</Text>
             <View style={styles.divider} />
           </View>
 
@@ -214,7 +228,7 @@ export default function SignUpScreen() {
           >
             <Ionicons name="logo-google" size={20} color="#111" />
             <Text style={styles.googleButtonText}>
-              {googleLoading ? 'Connecting...' : 'Continue with Google'}
+              {googleLoading ? t('auth.connecting') : t('auth.continue_with_google')}
             </Text>
           </TouchableOpacity>
 
@@ -271,6 +285,7 @@ const styles = StyleSheet.create({
     shadowRadius: 8,
     elevation: 5,
   },
+  logoHat: { width: 46, height: 38 },
   logoText: { fontSize: 32, fontWeight: 'bold', color: '#FFFFFF', letterSpacing: 1 },
   logoTagline: { fontSize: 13, color: 'rgba(255,255,255,0.8)', marginTop: 4 },
   formSection: {
@@ -315,6 +330,18 @@ const styles = StyleSheet.create({
   roleTitleActive: { color: '#FFFFFF' },
   roleDesc: { fontSize: 11, color: '#888', textAlign: 'center', lineHeight: 15 },
   roleDescActive: { color: 'rgba(255,255,255,0.85)' },
+  chefTermsBox: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 10,
+    backgroundColor: '#F5F5F5',
+    borderRadius: 14,
+    padding: 14,
+    marginBottom: 18,
+  },
+  checkbox: { width: 20, height: 20, borderRadius: 6, borderWidth: 1.5, borderColor: '#D0D0D0', alignItems: 'center', justifyContent: 'center', marginTop: 1 },
+  checkboxChecked: { backgroundColor: RED, borderColor: RED },
+  chefTermsText: { fontSize: 12.5, flex: 1, lineHeight: 18, color: '#555' },
   inputRow: {
     flexDirection: 'row',
     alignItems: 'center',

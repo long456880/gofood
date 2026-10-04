@@ -6,6 +6,7 @@ export type IngredientCategory =
   | 'dairy'
   | 'grain'
   | 'spice'
+  | 'sweet'
   | 'herb'
   | 'liquid'
   | 'other';
@@ -17,7 +18,8 @@ const CATEGORY_KEYWORDS: Record<IngredientCategory, string[]> = {
   fruit: ['lemon', 'lime', 'apple', 'mango', 'banana', 'coconut', 'pineapple', 'orange', 'berry', 'grape', 'avocado'],
   dairy: ['milk', 'cheese', 'butter', 'cream', 'yogurt', 'egg'],
   grain: ['rice', 'flour', 'noodle', 'pasta', 'bread', 'tortilla', 'oat', 'quinoa'],
-  spice: ['salt', 'sugar', 'cumin', 'paprika', 'turmeric', 'cinnamon', 'pepper flakes', 'msg', 'spice', 'curry powder'],
+  spice: ['salt', 'cumin', 'paprika', 'turmeric', 'cinnamon', 'pepper flakes', 'msg', 'spice', 'curry powder'],
+  sweet: ['sugar', 'honey', 'syrup', 'chocolate', 'cocoa', 'vanilla', 'caramel'],
   herb: ['basil', 'cilantro', 'parsley', 'mint', 'thyme', 'rosemary', 'oregano', 'lemongrass', 'dill', 'herbes'],
   liquid: ['oil', 'water', 'broth', 'stock', 'sauce', 'vinegar', 'wine', 'soy sauce', 'fish sauce', 'coconut milk'],
   other: [],

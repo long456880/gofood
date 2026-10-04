@@ -1,62 +1,52 @@
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter, Stack } from 'expo-router';
+import { useFocusEffect } from 'expo-router';
+import { useCallback, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useTheme } from '@/lib/theme-context';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { apiFetch } from '@/lib/api-fetch';
+import { useNotificationText, type AppNotification } from '@/lib/notification-text';
+import { useNotifications } from '@/components/NotificationProvider';
 
 const RED = '#D62828';
 const WARM_BG = '#FBF8F4';
 
-type Notification = {
-  id: string;
-  icon: keyof typeof Ionicons.glyphMap;
-  title: string;
-  message: string;
-  time: string;
-};
-
-const SAMPLE_NOTIFICATIONS: Notification[] = [
-  {
-    id: '1',
-    icon: 'restaurant',
-    title: 'New recipe added!',
-    message: 'Check out "Khmer Beef Lok Lak" — now available in the Khmer collection.',
-    time: '2h ago',
-  },
-  {
-    id: '2',
-    icon: 'diamond',
-    title: 'Points purchased',
-    message: 'You successfully added 120 points to your account.',
-    time: '5h ago',
-  },
-  {
-    id: '3',
-    icon: 'heart',
-    title: 'Recipe saved',
-    message: 'Mango Sticky Rice was added to your Favorites.',
-    time: '1d ago',
-  },
-  {
-    id: '4',
-    icon: 'lock-open',
-    title: 'Recipe unlocked',
-    message: 'You unlocked "Japanese Tonkotsu Ramen" using your points.',
-    time: '2d ago',
-  },
-  {
-    id: '5',
-    icon: 'star',
-    title: 'Welcome to GoFood!',
-    message: 'You got 10 free recipes to start exploring. Happy cooking!',
-    time: '5d ago',
-  },
-];
+type Notification = AppNotification & { is_read: boolean };
 
 export default function NotificationsScreen() {
   const router = useRouter();
   const { colors, dark } = useTheme();
   const insets = useSafeAreaInsets();
+  const { t } = useTranslation();
+  const [notifications, setNotifications] = useState<Notification[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  const { localizedTitle, localizedMessage } = useNotificationText();
+  const { refresh: refreshUnread } = useNotifications();
+
+  const timeAgo = (dateStr: string): string => {
+    const diffMs = Date.now() - new Date(dateStr).getTime();
+    const mins = Math.floor(diffMs / 60000);
+    if (mins < 1) return t('notifications_screen.just_now');
+    if (mins < 60) return t('notifications_screen.minutes_ago', { count: mins });
+    const hours = Math.floor(mins / 60);
+    if (hours < 24) return t('notifications_screen.hours_ago', { count: hours });
+    const days = Math.floor(hours / 24);
+    return t('notifications_screen.days_ago', { count: days });
+  };
+
+  useFocusEffect(
+    useCallback(() => {
+      apiFetch('/api/notifications')
+        .then((res) => res.json())
+        .then((data) => setNotifications(Array.isArray(data) ? data : []))
+        // Opening the page marks everything read, so the bell badge clears.
+        .then(() => refreshUnread())
+        .finally(() => setLoading(false));
+    }, [refreshUnread])
+  );
 
   return (
     <View style={[styles.container, { backgroundColor: dark ? colors.background : WARM_BG }]}>
@@ -65,33 +55,50 @@ export default function NotificationsScreen() {
         <TouchableOpacity style={styles.backBtn} onPress={() => router.back()}>
           <Ionicons name="chevron-back" size={22} color={colors.text} />
         </TouchableOpacity>
-        <Text style={[styles.headerTitle, { color: colors.text }]}>Notifications</Text>
+        <Text style={[styles.headerTitle, { color: colors.text }]}>{t('notifications_screen.title')}</Text>
         <View style={{ width: 36 }} />
       </View>
 
-      <ScrollView contentContainerStyle={styles.list} showsVerticalScrollIndicator={false}>
-        {SAMPLE_NOTIFICATIONS.map((n) => (
-          <View key={n.id} style={[styles.card, { backgroundColor: colors.card }]}>
-            <View style={styles.iconBg}>
-              <Ionicons name={n.icon} size={20} color={RED} />
-            </View>
-            <View style={{ flex: 1 }}>
-              <View style={styles.rowBetween}>
-                <Text style={[styles.title, { color: colors.text }]}>{n.title}</Text>
-                <Text style={[styles.time, { color: colors.subtext }]}>{n.time}</Text>
+      {loading ? (
+        <View style={styles.center}>
+          <ActivityIndicator size="large" color={RED} />
+        </View>
+      ) : notifications.length === 0 ? (
+        <View style={styles.center}>
+          <Ionicons name="notifications-outline" size={44} color={colors.subtext} />
+          <Text style={[styles.emptyText, { color: colors.subtext }]}>
+            {t('notifications_screen.empty')}
+          </Text>
+        </View>
+      ) : (
+        <ScrollView contentContainerStyle={styles.list} showsVerticalScrollIndicator={false}>
+          {notifications.map((n) => (
+            <TouchableOpacity
+              key={n.id}
+              style={[styles.card, { backgroundColor: colors.card }, !n.is_read && styles.cardUnread]}
+              activeOpacity={0.7}
+              onPress={() => n.link && router.push(n.link as any)}
+            >
+              <View style={{ flex: 1 }}>
+                <View style={styles.rowBetween}>
+                  <Text style={[styles.title, { color: colors.text }]}>{localizedTitle(n)}</Text>
+                  <Text style={[styles.time, { color: colors.subtext }]}>{timeAgo(n.created_at)}</Text>
+                </View>
+                <Text style={[styles.message, { color: colors.subtext }]}>{localizedMessage(n)}</Text>
               </View>
-              <Text style={[styles.message, { color: colors.subtext }]}>{n.message}</Text>
-            </View>
-          </View>
-        ))}
-        <View style={{ height: 30 }} />
-      </ScrollView>
+            </TouchableOpacity>
+          ))}
+          <View style={{ height: 30 }} />
+        </ScrollView>
+      )}
     </View>
   );
 }
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
+  center: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 12, paddingHorizontal: 40 },
+  emptyText: { fontSize: 14, textAlign: 'center' },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -119,14 +126,7 @@ const styles = StyleSheet.create({
     shadowRadius: 8,
     elevation: 2,
   },
-  iconBg: {
-    width: 40,
-    height: 40,
-    borderRadius: 12,
-    backgroundColor: RED + '15',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
+  cardUnread: { borderWidth: 1.5, borderColor: RED },
   rowBetween: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', gap: 8 },
   title: { fontSize: 14.5, fontWeight: '700', flexShrink: 1 },
   time: { fontSize: 11 },
