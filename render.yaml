@@ -1,0 +1,31 @@
+services:
+  - type: web
+    name: gofood-api
+    runtime: node
+    plan: free
+    rootDir: server
+    buildCommand: npm install
+    startCommand: npm start
+    envVars:
+      - key: DATABASE_URL
+        sync: false
+      - key: SUPABASE_URL
+        sync: false
+      - key: SUPABASE_ANON_KEY
+        sync: false
+      - key: EXPO_PUBLIC_SUPABASE_URL
+        sync: false
+      - key: EXPO_PUBLIC_SUPABASE_ANON_KEY
+        sync: false
+      - key: GOOGLE_CLIENT_ID
+        sync: false
+      - key: GOOGLE_CLIENT_SECRET
+        sync: false
+      - key: BAKONG_ACCOUNT_ID
+        sync: false
+      - key: BAKONG_ACCOUNT_NAME
+        sync: false
+      - key: BAKONG_ACCOUNT_CITY
+        sync: false
+      - key: BAKONG_API_TOKEN
+        sync: false

@@ -1,0 +1,388 @@
+{
+  "apiRoutes": [
+    {
+      "file": "_expo/functions/api/orders+api.js",
+      "page": "/api/orders",
+      "namedRegex": "^/api/orders(?:/)?$",
+      "routeKeys": {}
+    },
+    {
+      "file": "_expo/functions/api/profile+api.js",
+      "page": "/api/profile",
+      "namedRegex": "^/api/profile(?:/)?$",
+      "routeKeys": {}
+    },
+    {
+      "file": "_expo/functions/api/recipes+api.js",
+      "page": "/api/recipes",
+      "namedRegex": "^/api/recipes(?:/)?$",
+      "routeKeys": {}
+    },
+    {
+      "file": "_expo/functions/api/support+api.js",
+      "page": "/api/support",
+      "namedRegex": "^/api/support(?:/)?$",
+      "routeKeys": {}
+    },
+    {
+      "file": "_expo/functions/api/unlocked+api.js",
+      "page": "/api/unlocked",
+      "namedRegex": "^/api/unlocked(?:/)?$",
+      "routeKeys": {}
+    },
+    {
+      "file": "_expo/functions/api/favorites+api.js",
+      "page": "/api/favorites",
+      "namedRegex": "^/api/favorites(?:/)?$",
+      "routeKeys": {}
+    },
+    {
+      "file": "_expo/functions/api/admin/support+api.js",
+      "page": "/api/admin/support",
+      "namedRegex": "^/api/admin/support(?:/)?$",
+      "routeKeys": {}
+    },
+    {
+      "file": "_expo/functions/api/notifications+api.js",
+      "page": "/api/notifications",
+      "namedRegex": "^/api/notifications(?:/)?$",
+      "routeKeys": {}
+    },
+    {
+      "file": "_expo/functions/api/chef/dashboard+api.js",
+      "page": "/api/chef/dashboard",
+      "namedRegex": "^/api/chef/dashboard(?:/)?$",
+      "routeKeys": {}
+    },
+    {
+      "file": "_expo/functions/api/profile/avatar+api.js",
+      "page": "/api/profile/avatar",
+      "namedRegex": "^/api/profile/avatar(?:/)?$",
+      "routeKeys": {}
+    },
+    {
+      "file": "_expo/functions/api/profile/update+api.js",
+      "page": "/api/profile/update",
+      "namedRegex": "^/api/profile/update(?:/)?$",
+      "routeKeys": {}
+    },
+    {
+      "file": "_expo/functions/api/recipes/submit+api.js",
+      "page": "/api/recipes/submit",
+      "namedRegex": "^/api/recipes/submit(?:/)?$",
+      "routeKeys": {}
+    },
+    {
+      "file": "_expo/functions/api/admin/dashboard+api.js",
+      "page": "/api/admin/dashboard",
+      "namedRegex": "^/api/admin/dashboard(?:/)?$",
+      "routeKeys": {}
+    },
+    {
+      "file": "_expo/functions/api/favorites/check+api.js",
+      "page": "/api/favorites/check",
+      "namedRegex": "^/api/favorites/check(?:/)?$",
+      "routeKeys": {}
+    },
+    {
+      "file": "_expo/functions/api/admin/all-recipes+api.js",
+      "page": "/api/admin/all-recipes",
+      "namedRegex": "^/api/admin/all\\-recipes(?:/)?$",
+      "routeKeys": {}
+    },
+    {
+      "file": "_expo/functions/api/notifications/read+api.js",
+      "page": "/api/notifications/read",
+      "namedRegex": "^/api/notifications/read(?:/)?$",
+      "routeKeys": {}
+    },
+    {
+      "file": "_expo/functions/api/recipes/my-recipes+api.js",
+      "page": "/api/recipes/my-recipes",
+      "namedRegex": "^/api/recipes/my\\-recipes(?:/)?$",
+      "routeKeys": {}
+    },
+    {
+      "file": "_expo/functions/api/notifications/unread+api.js",
+      "page": "/api/notifications/unread",
+      "namedRegex": "^/api/notifications/unread(?:/)?$",
+      "routeKeys": {}
+    },
+    {
+      "file": "_expo/functions/api/profile/account-type+api.js",
+      "page": "/api/profile/account-type",
+      "namedRegex": "^/api/profile/account\\-type(?:/)?$",
+      "routeKeys": {}
+    },
+    {
+      "file": "_expo/functions/api/admin/deleted-recipes+api.js",
+      "page": "/api/admin/deleted-recipes",
+      "namedRegex": "^/api/admin/deleted\\-recipes(?:/)?$",
+      "routeKeys": {}
+    },
+    {
+      "file": "_expo/functions/api/admin/pending-recipes+api.js",
+      "page": "/api/admin/pending-recipes",
+      "namedRegex": "^/api/admin/pending\\-recipes(?:/)?$",
+      "routeKeys": {}
+    },
+    {
+      "file": "_expo/functions/api/admin/reported-recipes+api.js",
+      "page": "/api/admin/reported-recipes",
+      "namedRegex": "^/api/admin/reported\\-recipes(?:/)?$",
+      "routeKeys": {}
+    },
+    {
+      "file": "_expo/functions/api/profile/notifications-toggle+api.js",
+      "page": "/api/profile/notifications-toggle",
+      "namedRegex": "^/api/profile/notifications\\-toggle(?:/)?$",
+      "routeKeys": {}
+    },
+    {
+      "file": "_expo/functions/api/admin/recipes/[id]/delete+api.js",
+      "page": "/api/admin/recipes/[id]/delete",
+      "namedRegex": "^/api/admin/recipes/(?<id>[^/]+?)/delete(?:/)?$",
+      "routeKeys": {
+        "id": "id"
+      }
+    },
+    {
+      "file": "_expo/functions/api/admin/recipes/[id]/restore+api.js",
+      "page": "/api/admin/recipes/[id]/restore",
+      "namedRegex": "^/api/admin/recipes/(?<id>[^/]+?)/restore(?:/)?$",
+      "routeKeys": {
+        "id": "id"
+      }
+    },
+    {
+      "file": "_expo/functions/api/admin/recipes/[id]/review+api.js",
+      "page": "/api/admin/recipes/[id]/review",
+      "namedRegex": "^/api/admin/recipes/(?<id>[^/]+?)/review(?:/)?$",
+      "routeKeys": {
+        "id": "id"
+      }
+    },
+    {
+      "file": "_expo/functions/api/admin/reports/[recipeId]/dismiss+api.js",
+      "page": "/api/admin/reports/[recipeId]/dismiss",
+      "namedRegex": "^/api/admin/reports/(?<recipeId>[^/]+?)/dismiss(?:/)?$",
+      "routeKeys": {
+        "recipeId": "recipeId"
+      }
+    },
+    {
+      "file": "_expo/functions/api/admin/support/[userId]+api.js",
+      "page": "/api/admin/support/[userId]",
+      "namedRegex": "^/api/admin/support/(?<userId>[^/]+?)(?:/)?$",
+      "routeKeys": {
+        "userId": "userId"
+      }
+    },
+    {
+      "file": "_expo/functions/api/recipes/[id]/delete+api.js",
+      "page": "/api/recipes/[id]/delete",
+      "namedRegex": "^/api/recipes/(?<id>[^/]+?)/delete(?:/)?$",
+      "routeKeys": {
+        "id": "id"
+      }
+    },
+    {
+      "file": "_expo/functions/api/recipes/[id]/khqr+api.js",
+      "page": "/api/recipes/[id]/khqr",
+      "namedRegex": "^/api/recipes/(?<id>[^/]+?)/khqr(?:/)?$",
+      "routeKeys": {
+        "id": "id"
+      }
+    },
+    {
+      "file": "_expo/functions/api/recipes/[id]/mock-pay+api.js",
+      "page": "/api/recipes/[id]/mock-pay",
+      "namedRegex": "^/api/recipes/(?<id>[^/]+?)/mock\\-pay(?:/)?$",
+      "routeKeys": {
+        "id": "id"
+      }
+    },
+    {
+      "file": "_expo/functions/api/recipes/[id]/rate+api.js",
+      "page": "/api/recipes/[id]/rate",
+      "namedRegex": "^/api/recipes/(?<id>[^/]+?)/rate(?:/)?$",
+      "routeKeys": {
+        "id": "id"
+      }
+    },
+    {
+      "file": "_expo/functions/api/recipes/[id]/report+api.js",
+      "page": "/api/recipes/[id]/report",
+      "namedRegex": "^/api/recipes/(?<id>[^/]+?)/report(?:/)?$",
+      "routeKeys": {
+        "id": "id"
+      }
+    },
+    {
+      "file": "_expo/functions/api/recipes/[id]/unlock+api.js",
+      "page": "/api/recipes/[id]/unlock",
+      "namedRegex": "^/api/recipes/(?<id>[^/]+?)/unlock(?:/)?$",
+      "routeKeys": {
+        "id": "id"
+      }
+    },
+    {
+      "file": "_expo/functions/api/recipes/[id]+api.js",
+      "page": "/api/recipes/[id]",
+      "namedRegex": "^/api/recipes/(?<id>[^/]+?)(?:/)?$",
+      "routeKeys": {
+        "id": "id"
+      }
+    }
+  ],
+  "htmlRoutes": [
+    {
+      "file": "./(tabs)/index.tsx",
+      "page": "/(tabs)/index",
+      "namedRegex": "^(?:/\\(tabs\\))?(?:/)?$",
+      "routeKeys": {}
+    },
+    {
+      "file": "./(tabs)/profile.tsx",
+      "page": "/(tabs)/profile",
+      "namedRegex": "^(?:/\\(tabs\\))?/profile(?:/)?$",
+      "routeKeys": {}
+    },
+    {
+      "file": "./welcome.tsx",
+      "page": "/welcome",
+      "namedRegex": "^/welcome(?:/)?$",
+      "routeKeys": {}
+    },
+    {
+      "file": "./sign-up.tsx",
+      "page": "/sign-up",
+      "namedRegex": "^/sign\\-up(?:/)?$",
+      "routeKeys": {}
+    },
+    {
+      "file": "./sign-in.tsx",
+      "page": "/sign-in",
+      "namedRegex": "^/sign\\-in(?:/)?$",
+      "routeKeys": {}
+    },
+    {
+      "file": "expo-router/build/views/Sitemap.js",
+      "page": "/_sitemap",
+      "namedRegex": "^/_sitemap(?:/)?$",
+      "routeKeys": {},
+      "generated": true
+    },
+    {
+      "file": "./(tabs)/favorites.tsx",
+      "page": "/(tabs)/favorites",
+      "namedRegex": "^(?:/\\(tabs\\))?/favorites(?:/)?$",
+      "routeKeys": {}
+    },
+    {
+      "file": "./(tabs)/dashboard.tsx",
+      "page": "/(tabs)/dashboard",
+      "namedRegex": "^(?:/\\(tabs\\))?/dashboard(?:/)?$",
+      "routeKeys": {}
+    },
+    {
+      "file": "./my-orders.tsx",
+      "page": "/my-orders",
+      "namedRegex": "^/my\\-orders(?:/)?$",
+      "routeKeys": {}
+    },
+    {
+      "file": "./my-recipes.tsx",
+      "page": "/my-recipes",
+      "namedRegex": "^/my\\-recipes(?:/)?$",
+      "routeKeys": {}
+    },
+    {
+      "file": "./support-chat.tsx",
+      "page": "/support-chat",
+      "namedRegex": "^/support\\-chat(?:/)?$",
+      "routeKeys": {}
+    },
+    {
+      "file": "./new-password.tsx",
+      "page": "/new-password",
+      "namedRegex": "^/new\\-password(?:/)?$",
+      "routeKeys": {}
+    },
+    {
+      "file": "./edit-profile.tsx",
+      "page": "/edit-profile",
+      "namedRegex": "^/edit\\-profile(?:/)?$",
+      "routeKeys": {}
+    },
+    {
+      "file": "./admin-review.tsx",
+      "page": "/admin-review",
+      "namedRegex": "^/admin\\-review(?:/)?$",
+      "routeKeys": {}
+    },
+    {
+      "file": "./upload-recipe.tsx",
+      "page": "/upload-recipe",
+      "namedRegex": "^/upload\\-recipe(?:/)?$",
+      "routeKeys": {}
+    },
+    {
+      "file": "./notifications.tsx",
+      "page": "/notifications",
+      "namedRegex": "^/notifications(?:/)?$",
+      "routeKeys": {}
+    },
+    {
+      "file": "./forgot-verify.tsx",
+      "page": "/forgot-verify",
+      "namedRegex": "^/forgot\\-verify(?:/)?$",
+      "routeKeys": {}
+    },
+    {
+      "file": "./admin-support.tsx",
+      "page": "/admin-support",
+      "namedRegex": "^/admin\\-support(?:/)?$",
+      "routeKeys": {}
+    },
+    {
+      "file": "./chef-dashboard.tsx",
+      "page": "/chef-dashboard",
+      "namedRegex": "^/chef\\-dashboard(?:/)?$",
+      "routeKeys": {}
+    },
+    {
+      "file": "./forgot-password.tsx",
+      "page": "/forgot-password",
+      "namedRegex": "^/forgot\\-password(?:/)?$",
+      "routeKeys": {}
+    },
+    {
+      "file": "./admin-dashboard.tsx",
+      "page": "/admin-dashboard",
+      "namedRegex": "^/admin\\-dashboard(?:/)?$",
+      "routeKeys": {}
+    },
+    {
+      "file": "./recipe/[id].tsx",
+      "page": "/recipe/[id]",
+      "namedRegex": "^/recipe/(?<id>[^/]+?)(?:/)?$",
+      "routeKeys": {
+        "id": "id"
+      }
+    }
+  ],
+  "notFoundRoutes": [
+    {
+      "file": "expo-router/build/views/Unmatched.js",
+      "page": "/+not-found",
+      "namedRegex": "^(?:/(?<notfound>.+?))?(?:/)?$",
+      "routeKeys": {
+        "notfound": "not-found"
+      },
+      "generated": true
+    }
+  ],
+  "redirects": [],
+  "rewrites": []
+}

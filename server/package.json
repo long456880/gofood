@@ -1,0 +1,7 @@
+{
+  "name": "gofood-server",
+  "private": true,
+  "scripts": { "start": "node server.js" },
+  "dependencies": { "expo-server": "~57.0.3" },
+  "engines": { "node": ">=20" }
+}

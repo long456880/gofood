@@ -1,6 +1,10 @@
 import Constants from "expo-constants";
 
 export const getBaseUrl = () => {
+  // Built apps (APK) have no dev server, so they use the hosted API.
+  const apiUrl = process.env.EXPO_PUBLIC_API_URL;
+  if (apiUrl) return apiUrl.replace(/\/$/, "");
+
   const hostUri = Constants.expoConfig?.hostUri;
   if (!hostUri) {
     return "http://localhost:8081";
