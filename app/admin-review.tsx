@@ -38,6 +38,8 @@ type RecipeItem = {
   description: string;
   cuisine: string;
   image_url: string | null;
+  progress_image_1?: string | null;
+  progress_image_2?: string | null;
   is_free: boolean;
   price_usd: number | string | null;
   meal_type: string | null;
@@ -130,6 +132,7 @@ export default function AdminReviewScreen() {
   const [customReason, setCustomReason] = useState('');
   const [deleteModalRecipe, setDeleteModalRecipe] = useState<{ id: string; status?: string } | null>(null);
   const [deleteReason, setDeleteReason] = useState('');
+  const [previewUri, setPreviewUri] = useState<string | null>(null);
 
   const fetchAllData = useCallback(async () => {
     try {
@@ -354,7 +357,9 @@ export default function AdminReviewScreen() {
             <View key={recipe.id} style={[styles.card, { backgroundColor: colors.card, borderColor: colors.border }]}>
               <View style={styles.cardHeader}>
                 {recipe.image_url ? (
-                  <Image source={{ uri: recipe.image_url }} style={styles.thumb} contentFit="cover" />
+                  <TouchableOpacity onPress={() => setPreviewUri(recipe.image_url)} activeOpacity={0.8}>
+                    <Image source={{ uri: recipe.image_url }} style={styles.thumb} contentFit="cover" />
+                  </TouchableOpacity>
                 ) : (
                   <View style={[styles.thumb, styles.thumbFallback, { backgroundColor: colors.input }]}>
                     <Ionicons name="restaurant-outline" size={22} color={colors.subtext} />
@@ -421,7 +426,9 @@ export default function AdminReviewScreen() {
             <View key={recipe.id} style={[styles.card, { backgroundColor: colors.card, borderColor: colors.border }]}>
               <View style={styles.cardHeader}>
                 {recipe.image_url ? (
-                  <Image source={{ uri: recipe.image_url }} style={[styles.thumb, { opacity: 0.5 }]} contentFit="cover" />
+                  <TouchableOpacity onPress={() => setPreviewUri(recipe.image_url)} activeOpacity={0.8}>
+                    <Image source={{ uri: recipe.image_url }} style={[styles.thumb, { opacity: 0.5 }]} contentFit="cover" />
+                  </TouchableOpacity>
                 ) : (
                   <View style={[styles.thumb, styles.thumbFallback, { backgroundColor: colors.input }]}>
                     <Ionicons name="restaurant-outline" size={22} color={colors.subtext} />
@@ -478,7 +485,9 @@ export default function AdminReviewScreen() {
                 activeOpacity={0.8}
               >
                 {recipe.image_url ? (
-                  <Image source={{ uri: recipe.image_url }} style={styles.thumb} contentFit="cover" />
+                  <TouchableOpacity onPress={() => setPreviewUri(recipe.image_url)} activeOpacity={0.8}>
+                    <Image source={{ uri: recipe.image_url }} style={styles.thumb} contentFit="cover" />
+                  </TouchableOpacity>
                 ) : (
                   <View style={[styles.thumb, styles.thumbFallback, { backgroundColor: colors.input }]}>
                     <Ionicons name="restaurant-outline" size={22} color={colors.subtext} />
@@ -522,6 +531,21 @@ export default function AdminReviewScreen() {
 
               {expanded && (
                 <View style={styles.detailBlock}>
+                  {(() => {
+                    const photos = [recipe.image_url, recipe.progress_image_1, recipe.progress_image_2].filter(
+                      (u): u is string => !!u,
+                    );
+                    if (photos.length < 2) return null;
+                    return (
+                      <View style={styles.photoStrip}>
+                        {photos.map((uri) => (
+                          <TouchableOpacity key={uri} style={{ flex: 1 }} onPress={() => setPreviewUri(uri)} activeOpacity={0.8}>
+                            <Image source={{ uri }} style={styles.stripImg} contentFit="cover" />
+                          </TouchableOpacity>
+                        ))}
+                      </View>
+                    );
+                  })()}
                   {(() => {
                     const flagged = !!recipe.possible_matches?.length;
                     const similar = recipe.similar_recipes ?? [];
@@ -599,6 +623,31 @@ export default function AdminReviewScreen() {
           );
         })
       )}
+
+      {/* Full-size image preview */}
+      <Modal
+        visible={!!previewUri}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setPreviewUri(null)}
+      >
+        <TouchableOpacity
+          style={styles.previewOverlay}
+          activeOpacity={1}
+          onPress={() => setPreviewUri(null)}
+        >
+          {previewUri && (
+            <Image source={{ uri: previewUri }} style={styles.previewImage} contentFit="contain" />
+          )}
+          <TouchableOpacity
+            style={[styles.previewClose, { top: insets.top + 12 }]}
+            onPress={() => setPreviewUri(null)}
+            hitSlop={10}
+          >
+            <Ionicons name="close" size={26} color="#fff" />
+          </TouchableOpacity>
+        </TouchableOpacity>
+      </Modal>
 
       {/* Rejection reason picker */}
       <Modal
@@ -733,6 +782,11 @@ const styles = StyleSheet.create({
   outlineBtnText: { fontWeight: '600', fontSize: 14 },
   approveBtn: { backgroundColor: RED },
   approveBtnText: { color: '#fff', fontWeight: '600', fontSize: 14 },
+  photoStrip: { flexDirection: 'row', gap: 8, marginBottom: 10 },
+  stripImg: { width: '100%', height: 90, borderRadius: 6 },
+  previewOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.92)', justifyContent: 'center', alignItems: 'center' },
+  previewImage: { width: '100%', height: '80%' },
+  previewClose: { position: 'absolute', right: 16, width: 40, height: 40, borderRadius: 20, backgroundColor: 'rgba(255,255,255,0.18)', alignItems: 'center', justifyContent: 'center' },
   modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', alignItems: 'center', padding: 24 },
   modalCard: { width: '100%', maxWidth: 380, borderRadius: 8, padding: 20 },
   modalTitle: { fontSize: 17, fontWeight: '700', marginBottom: 4 },

@@ -1,0 +1,183 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>GoFood – Recipes you can watch happen</title>
+  <meta name="description" content="GoFood shows you each cooking step with animations, timers and plain-word tips, in English and Khmer. Download the Android app." />
+  <meta property="og:title" content="GoFood – Recipes you can watch happen" />
+  <meta property="og:description" content="Step-by-step illustrated cooking, in English and Khmer. Download the Android app." />
+  <meta property="og:image" content="icon.png" />
+  <link rel="icon" href="favicon.png" />
+  <style>
+    :root {
+      --red: #d62828;
+      --red-dark: #a81d1d;
+      --bg: #faf7f2;
+      --card: #ffffff;
+      --text: #1a1a1a;
+      --sub: #666;
+      --border: #ece6dc;
+      --cream: #fdf6e8;
+    }
+    @media (prefers-color-scheme: dark) {
+      :root { --bg: #121212; --card: #1c1c1c; --text: #f5f5f5; --sub: #a0a0a0; --border: #2a2a2a; --cream: #2a2418; }
+    }
+    * { box-sizing: border-box; }
+    html { scroll-behavior: smooth; }
+    body {
+      margin: 0;
+      font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      line-height: 1.55;
+    }
+    .wrap { max-width: 960px; margin: 0 auto; padding: 0 20px; }
+
+    /* Hero */
+    .hero { display: grid; gap: 40px; align-items: center; padding: 56px 0 40px; }
+    @media (min-width: 800px) { .hero { grid-template-columns: 1.1fr .9fr; } }
+    .brand { display: flex; align-items: center; gap: 12px; margin-bottom: 20px; }
+    .brand img { width: 52px; height: 52px; border-radius: 13px; box-shadow: 0 4px 12px rgba(0,0,0,.18); }
+    .brand span { font-size: 1.3rem; font-weight: 800; color: var(--red); }
+    h1 { font-size: clamp(2rem, 6vw, 3.1rem); line-height: 1.1; margin: 0 0 14px; }
+    h1 em { font-style: normal; color: var(--red); }
+    .lead { color: var(--sub); font-size: 1.1rem; margin: 0 0 26px; max-width: 34ch; }
+    .btn {
+      display: inline-flex; align-items: center; gap: 10px;
+      background: var(--red); color: #fff; text-decoration: none;
+      font-weight: 700; font-size: 1.1rem;
+      padding: 16px 30px; border-radius: 14px;
+      box-shadow: 0 6px 18px rgba(214,40,40,.35);
+      transition: background .15s, transform .15s;
+    }
+    .btn:hover { background: var(--red-dark); transform: translateY(-1px); }
+    .btn svg { width: 22px; height: 22px; fill: currentColor; }
+    .meta { color: var(--sub); font-size: .85rem; margin-top: 12px; }
+    .meta a { color: inherit; }
+
+    /* Phone mockup */
+    .phone-wrap { display: flex; justify-content: center; }
+    .phone {
+      width: 250px; border-radius: 36px; padding: 10px;
+      background: #111; box-shadow: 0 24px 50px rgba(0,0,0,.28);
+    }
+    .screen { background: var(--bg); border-radius: 28px; overflow: hidden; padding: 18px 14px 16px; color: var(--text); }
+    .step-card { border: 1.5px solid var(--red); border-radius: 16px; padding: 12px; background: var(--card); }
+    .step-label { color: var(--red); font-weight: 800; font-size: .8rem; margin-bottom: 6px; }
+    .bars { display: flex; gap: 4px; margin-bottom: 12px; }
+    .bars i { flex: 1; height: 4px; border-radius: 2px; background: var(--red); }
+    .bars i:last-child { opacity: .25; }
+    .scene {
+      height: 110px; border-radius: 12px; background: var(--cream);
+      display: flex; align-items: flex-end; justify-content: center;
+      position: relative; overflow: hidden; margin-bottom: 10px;
+    }
+    .scene::after { content: ""; position: absolute; left: 0; right: 0; bottom: 0; height: 38%; background: #f0dfc2; }
+    .plate { position: relative; z-index: 1; width: 80px; height: 14px; border-radius: 50%; background: #fff; margin-bottom: 14px; box-shadow: 0 2px 4px rgba(0,0,0,.1); }
+    .food { position: absolute; z-index: 2; bottom: 24px; left: 50%; transform: translateX(-50%); width: 48px; height: 26px; border-radius: 50%; background: #de8a3c; border: 2px solid #2b1a0e; }
+    .pill { display: inline-block; background: #fdebd0; color: #7a4a10; font-size: .7rem; font-weight: 700; padding: 4px 10px; border-radius: 20px; margin-bottom: 8px; }
+    .step-text { font-size: .8rem; margin: 0 0 12px; }
+    .step-text b { color: var(--red); }
+    .fake-btns { display: flex; gap: 8px; }
+    .fake-btns span { flex: 1; text-align: center; font-size: .75rem; font-weight: 700; padding: 8px 0; border-radius: 10px; border: 1.5px solid var(--red); color: var(--red); }
+    .fake-btns span:last-child { background: var(--red); color: #fff; }
+
+    /* Sections */
+    section { padding: 36px 0; }
+    h2 { font-size: 1.6rem; margin: 0 0 8px; text-align: center; }
+    .sub { color: var(--sub); text-align: center; margin: 0 auto 28px; max-width: 52ch; }
+    .grid { display: grid; gap: 14px; }
+    @media (min-width: 640px) { .grid { grid-template-columns: repeat(2, 1fr); } }
+    .feature { background: var(--card); border: 1px solid var(--border); border-radius: 16px; padding: 20px; }
+    .feature .emoji { font-size: 1.7rem; }
+    .feature h3 { margin: 8px 0 4px; font-size: 1.05rem; }
+    .feature p { margin: 0; color: var(--sub); font-size: .95rem; }
+
+    /* Download block */
+    .download {
+      background: var(--card); border: 1px solid var(--border); border-radius: 24px;
+      padding: 32px 22px; display: grid; gap: 28px; align-items: center; text-align: center;
+    }
+    @media (min-width: 720px) { .download { grid-template-columns: 1fr auto; text-align: left; padding: 36px; } }
+    .download h2 { text-align: inherit; }
+    .download .sub { text-align: inherit; margin-left: 0; }
+    ol { margin: 14px 0 0; padding-left: 20px; display: grid; gap: 6px; text-align: left; color: var(--sub); }
+    .qr { display: none; text-align: center; }
+    @media (min-width: 720px) { .qr { display: block; } }
+    .qr img { width: 170px; height: 170px; border-radius: 12px; border: 1px solid var(--border); background: #fff; }
+    .qr small { display: block; color: var(--sub); margin-top: 6px; font-size: .8rem; }
+
+    footer { color: var(--sub); font-size: .8rem; text-align: center; padding: 20px 0 40px; }
+    footer a { color: var(--sub); }
+  </style>
+</head>
+<body>
+  <main class="wrap">
+    <header class="hero">
+      <div>
+        <div class="brand"><img src="icon.png" alt="GoFood icon" /><span>GoFood</span></div>
+        <h1>Recipes you can <em>watch happen.</em></h1>
+        <p class="lead">GoFood doesn't just tell you to chop the onion. It shows you, one illustrated step at a time, in English or Khmer.</p>
+        <a class="btn" href="https://github.com/long456880/gofood/releases/latest/download/gofood.apk">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v10.6l3.3-3.3 1.4 1.4L12 16.4 7.3 11.7l1.4-1.4L11 13.6V3h1zM5 18h14v2H5z"/></svg>
+          Download for Android
+        </a>
+        <p class="meta">Free · Android APK · <a href="https://github.com/long456880/gofood/releases/latest">All versions</a></p>
+      </div>
+
+      <div class="phone-wrap" aria-hidden="true">
+        <div class="phone">
+          <div class="screen">
+            <div class="step-card">
+              <div class="step-label">Step 4 of 4</div>
+              <div class="bars"><i></i><i></i><i></i><i></i></div>
+              <div class="scene"><div class="food"></div><div class="plate"></div></div>
+              <span class="pill">Follow the step below</span>
+              <p class="step-text">4. Arrange everything over <b>rice</b> and top with <b>gochujang</b>.</p>
+              <div class="fake-btns"><span>Back</span><span>Finish!</span></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </header>
+
+    <section>
+      <h2>Cook with confidence</h2>
+      <p class="sub">Whether it's your first dish or your hundredth, GoFood walks you through it.</p>
+      <div class="grid">
+        <div class="feature"><div class="emoji">🎬</div><h3>Animated cooking steps</h3><p>One step at a time, with ingredient highlights and cooking animations so you see exactly what to do.</p></div>
+        <div class="feature"><div class="emoji">⏱️</div><h3>Built-in timers</h3><p>Steps that need timing start their own timer, so nothing burns while you look at your phone.</p></div>
+        <div class="feature"><div class="emoji">💬</div><h3>Plain-word explanations</h3><p>Hard cooking terms come with a simple explanation, so you never have to look them up.</p></div>
+        <div class="feature"><div class="emoji">🌏</div><h3>English and Khmer</h3><p>Switch language any time, with light and dark mode to match your kitchen.</p></div>
+        <div class="feature"><div class="emoji">👩‍🍳</div><h3>Real recipes from real chefs</h3><p>Chefs upload their own recipes and earn when you unlock theirs. Every recipe is reviewed first.</p></div>
+        <div class="feature"><div class="emoji">🔓</div><h3>Free and premium recipes</h3><p>Enjoy free recipes right away, and unlock premium ones by paying with Bakong KHQR.</p></div>
+      </div>
+    </section>
+
+    <section id="download">
+      <div class="download">
+        <div>
+          <h2>Get the app</h2>
+          <p class="sub">Download the APK and install it in under a minute.</p>
+          <a class="btn" href="https://github.com/long456880/gofood/releases/latest/download/gofood.apk">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v10.6l3.3-3.3 1.4 1.4L12 16.4 7.3 11.7l1.4-1.4L11 13.6V3h1zM5 18h14v2H5z"/></svg>
+            Download gofood.apk
+          </a>
+          <ol>
+            <li>Open the downloaded <strong>gofood.apk</strong> file.</li>
+            <li>If asked, allow <strong>Install unknown apps</strong> for your browser.</li>
+            <li>Tap <strong>Install</strong>, then open GoFood.</li>
+          </ol>
+        </div>
+        <div class="qr">
+          <img src="qr.png" alt="QR code linking to this page" />
+          <small>Scan to share this page</small>
+        </div>
+      </div>
+    </section>
+
+    <footer>© GoFood · <a href="https://github.com/long456880/gofood">Source on GitHub</a></footer>
+  </main>
+</body>
+</html>

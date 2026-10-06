@@ -12,7 +12,7 @@ export async function GET(request: Request) {
 
   const [pendingResult, otherResult] = await Promise.all([
     db.query(
-      `SELECT r.id, r.title, r.description, r.cuisine, r.image_url, r.is_free, r.price_usd,
+      `SELECT r.id, r.title, r.description, r.cuisine, r.image_url, r.progress_image_1, r.progress_image_2, r.is_free, r.price_usd,
               r.meal_type, r.category, r.ingredients, r.steps, r.created_at, r.chef_id,
               p.username AS chef_name
        FROM recipes r

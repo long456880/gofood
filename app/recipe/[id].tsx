@@ -98,6 +98,7 @@ export default function RecipeDetailScreen() {
   const [showCompleteModal, setShowCompleteModal] = useState(false);
   const [submittingRating, setSubmittingRating] = useState(false);
   const [payMethod, setPayMethod] = useState<'bakong' | 'card'>('bakong');
+  const [heroIndex, setHeroIndex] = useState(0);
   const [cardNumber, setCardNumber] = useState('');
   const [cardExpiry, setCardExpiry] = useState('');
   const [cardCvc, setCardCvc] = useState('');
@@ -435,14 +436,36 @@ export default function RecipeDetailScreen() {
     recipe.title.toLowerCase().includes('croissant') ||
     recipe.title.toLowerCase().includes('chocolate');
 
+  const galleryImages = [recipe.image_url, recipe.progress_image_1, recipe.progress_image_2].filter(
+    (u): u is string => !!u,
+  );
+
   return (
     <ScrollView style={[styles.container, { backgroundColor: dark ? colors.background : WARM_BG }]} showsVerticalScrollIndicator={false}>
       {/* Hero */}
       <View style={[styles.hero, { backgroundColor: '#1A1A1A' }]}>
-        {recipe.image_url && (
-          <Image source={{ uri: recipe.image_url }} style={StyleSheet.absoluteFill} contentFit="cover" />
+        {galleryImages.length > 0 && (
+          <ScrollView
+            horizontal
+            pagingEnabled
+            nestedScrollEnabled
+            showsHorizontalScrollIndicator={false}
+            style={StyleSheet.absoluteFill}
+            onMomentumScrollEnd={(e) => setHeroIndex(Math.round(e.nativeEvent.contentOffset.x / width))}
+          >
+            {galleryImages.map((uri) => (
+              <Image key={uri} source={{ uri }} style={{ width, height: 300 }} contentFit="cover" />
+            ))}
+          </ScrollView>
         )}
         <View style={[StyleSheet.absoluteFill, { backgroundColor: '#00000033' }]} pointerEvents="none" />
+        {galleryImages.length > 1 && (
+          <View style={styles.heroDots} pointerEvents="none">
+            {galleryImages.map((uri, i) => (
+              <View key={uri} style={[styles.heroDot, i === heroIndex && styles.heroDotActive]} />
+            ))}
+          </View>
+        )}
         <View style={[styles.heroButtons, { top: insets.top + 12 }]}>
           <TouchableOpacity style={styles.heroBtn} onPress={() => router.back()}>
             <Ionicons name="chevron-back" size={22} color="#fff" style={{ marginLeft: -2 }} />
@@ -587,7 +610,7 @@ export default function RecipeDetailScreen() {
             {/* Ingredients preview — tap to check off while prepping */}
             <View style={[styles.card, { backgroundColor: colors.card }]}>
               <View style={styles.sectionHeader}>
-                <View style={[styles.sectionIcon, { backgroundColor: RED + '22' }]}>
+                <View style={styles.sectionIcon}>
                   <Ionicons name="list" size={18} color={RED} />
                 </View>
                 <Text style={[styles.cardLabel, { color: colors.text, marginBottom: 0 }]}>{t('recipe.ingredients')} ({t('recipe.for')} {servings})</Text>
@@ -625,7 +648,7 @@ export default function RecipeDetailScreen() {
             {parsedSteps.some((s) => s.minutes.length > 0) && (
               <View style={[styles.card, { backgroundColor: colors.card }]}>
                 <View style={styles.sectionHeader}>
-                  <View style={[styles.sectionIcon, { backgroundColor: RED + '22' }]}>
+                  <View style={styles.sectionIcon}>
                     <Ionicons name="time-outline" size={18} color={RED} />
                   </View>
                   <Text style={[styles.cardLabel, { color: colors.text, marginBottom: 0 }]}>{t('recipe.timers')}</Text>
@@ -783,25 +806,34 @@ export default function RecipeDetailScreen() {
               </View>
             </View>
 
-            <View style={[styles.payTabRow, { borderColor: colors.border }]}>
-              <TouchableOpacity
-                style={[styles.payTab, payMethod === 'bakong' && styles.payTabActive]}
-                onPress={() => setPayMethod('bakong')}
-              >
-                <Ionicons name="qr-code-outline" size={16} color={payMethod === 'bakong' ? '#fff' : colors.subtext} />
-                <Text style={[styles.payTabText, { color: payMethod === 'bakong' ? '#fff' : colors.subtext }]}>
-                  {t('recipe_detail_screen.pay_with_bakong')}
-                </Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={[styles.payTab, payMethod === 'card' && styles.payTabActive]}
-                onPress={() => setPayMethod('card')}
-              >
-                <Ionicons name="card-outline" size={16} color={payMethod === 'card' ? '#fff' : colors.subtext} />
-                <Text style={[styles.payTabText, { color: payMethod === 'card' ? '#fff' : colors.subtext }]}>
-                  {t('recipe_detail_screen.pay_with_card')}
-                </Text>
-              </TouchableOpacity>
+            <View style={styles.payTabRow}>
+              {([
+                { key: 'bakong', icon: 'qr-code-outline', label: t('recipe_detail_screen.pay_with_bakong') },
+                { key: 'card', icon: 'card-outline', label: t('recipe_detail_screen.pay_with_card') },
+              ] as const).map((m) => {
+                const active = payMethod === m.key;
+                return (
+                  <TouchableOpacity
+                    key={m.key}
+                    activeOpacity={0.8}
+                    style={[
+                      styles.payTab,
+                      { borderColor: active ? RED : colors.border, backgroundColor: colors.card },
+                      active && styles.payTabActive,
+                    ]}
+                    onPress={() => setPayMethod(m.key)}
+                  >
+                    <Ionicons name={m.icon} size={22} color={active ? RED : colors.subtext} />
+                    <Text
+                      style={[styles.payTabText, { color: active ? RED : colors.subtext }]}
+                      numberOfLines={1}
+                      adjustsFontSizeToFit
+                    >
+                      {m.label}
+                    </Text>
+                  </TouchableOpacity>
+                );
+              })}
             </View>
 
             {payMethod === 'card' && (
@@ -1011,6 +1043,9 @@ const styles = StyleSheet.create({
   center: { flex: 1, justifyContent: 'center', alignItems: 'center' },
   hero: { width, height: 300, alignItems: 'center', justifyContent: 'center' },
   heroButtons: { position: 'absolute', left: 0, right: 0, flexDirection: 'row', justifyContent: 'space-between', paddingHorizontal: 20 },
+  heroDots: { position: 'absolute', bottom: 40, left: 0, right: 0, flexDirection: 'row', justifyContent: 'center', gap: 6 },
+  heroDot: { width: 7, height: 7, borderRadius: 4, backgroundColor: 'rgba(255,255,255,0.5)' },
+  heroDotActive: { backgroundColor: '#fff', width: 18 },
   heroBtn: { width: 40, height: 40, borderRadius: 20, backgroundColor: '#00000044', alignItems: 'center', justifyContent: 'center' },
   inlineBadges: { flexDirection: 'row', gap: 8, marginBottom: 10 },
   badge: { backgroundColor: '#00000055', paddingHorizontal: 10, paddingVertical: 5, borderRadius: 20 },
@@ -1079,7 +1114,7 @@ const styles = StyleSheet.create({
   stepNavText: { fontSize: 15, fontWeight: '700' },
   stepNavTextPrimary: { fontSize: 15, fontWeight: '700', color: '#fff' },
   lockedCard: { borderRadius: 20, padding: 28, alignItems: 'center', shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.08, shadowRadius: 12, elevation: 3 },
-  lockIconBg: { width: 72, height: 72, borderRadius: 36, backgroundColor: '#D6282822', alignItems: 'center', justifyContent: 'center', marginBottom: 14 },
+  lockIconBg: { width: 72, height: 72, borderRadius: 36, alignItems: 'center', justifyContent: 'center', marginBottom: 14 },
   lockedTitle: { fontSize: 20, fontWeight: '700', marginBottom: 8 },
   lockedDesc: { fontSize: 14, textAlign: 'center', lineHeight: 20, marginBottom: 20, paddingHorizontal: 10 },
   unlockBtn: { flexDirection: 'row', alignItems: 'center', backgroundColor: RED, paddingHorizontal: 24, paddingVertical: 14, borderRadius: 14, gap: 8, shadowColor: RED, shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.3, shadowRadius: 8, elevation: 4 },
@@ -1088,7 +1123,7 @@ const styles = StyleSheet.create({
   chefName: { fontSize: 13, fontWeight: '600' },
   modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', alignItems: 'center', padding: 24 },
   modalCard: { width: '100%', maxWidth: 340, borderRadius: 22, padding: 24, alignItems: 'center' },
-  modalIconBg: { width: 56, height: 56, borderRadius: 28, backgroundColor: '#D6282822', alignItems: 'center', justifyContent: 'center', marginBottom: 12 },
+  modalIconBg: { width: 56, height: 56, borderRadius: 28, alignItems: 'center', justifyContent: 'center', marginBottom: 12 },
   modalTitle: { fontSize: 18, fontWeight: '700', marginBottom: 4 },
   modalRecipeTitle: { fontSize: 13, marginBottom: 18, textAlign: 'center' },
   receiptBox: { width: '100%', borderWidth: 1.5, borderRadius: 14, padding: 14, marginBottom: 16 },
@@ -1115,10 +1150,10 @@ const styles = StyleSheet.create({
     minHeight: 80, textAlignVertical: 'top', marginBottom: 14,
   },
   cancelBtnText: { fontSize: 14, fontWeight: '600' },
-  payTabRow: { flexDirection: 'row', width: '100%', borderWidth: 1, borderRadius: 14, padding: 4, marginBottom: 16, gap: 4 },
-  payTab: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, paddingVertical: 10, borderRadius: 10 },
-  payTabActive: { backgroundColor: RED },
-  payTabText: { fontSize: 12.5, fontWeight: '700' },
+  payTabRow: { flexDirection: 'row', width: '100%', marginBottom: 16, gap: 10 },
+  payTab: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 6, paddingVertical: 14, paddingHorizontal: 8, borderRadius: 14, borderWidth: 1.5 },
+  payTabActive: { borderWidth: 2 },
+  payTabText: { fontSize: 13, fontWeight: '700', textAlign: 'center', maxWidth: '100%' },
   cardForm: { width: '100%', marginBottom: 6 },
   cardFieldLabel: { fontSize: 12, fontWeight: '600', marginBottom: 6, marginTop: 10 },
   cardInput: { borderWidth: 1, borderRadius: 12, paddingHorizontal: 14, paddingVertical: 12, fontSize: 15 },
