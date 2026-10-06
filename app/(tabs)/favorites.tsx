@@ -188,13 +188,13 @@ export default function FavoritesScreen() {
                         <View style={styles.ratingRow}>
                           <Ionicons name="star" size={12} color="#F5A623" />
                           <Text style={[styles.ratingText, { color: colors.subtext }]}>
-                            {Number(item.rating_count ?? 0) > 0 ? Number(item.avg_rating).toFixed(1) : 'New'}
+                            {Number(item.rating_count ?? 0) > 0 ? Number(item.avg_rating).toFixed(1) : t('home.new_recipe')}
                           </Text>
                         </View>
                       </View>
                       {item.chef_name && (
                         <Text style={[styles.chefText, { color: colors.subtext }]} numberOfLines={1}>
-                          by {item.chef_name}
+                          {t('my_orders_screen.by_chef', { name: item.chef_name })}
                         </Text>
                       )}
                     </View>

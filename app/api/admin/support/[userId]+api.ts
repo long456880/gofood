@@ -21,6 +21,13 @@ export async function GET(request: Request, { userId }: { userId: string }) {
      WHERE user_id = $1 AND sender = 'user' AND read_by_admin = false`,
     [userId]
   );
+  // Opening the thread counts as reading its notification.
+  await db.query(
+    `UPDATE notifications SET is_read = true
+     WHERE type = 'support' AND is_read = false AND params->>'userId' = $1
+       AND user_id IN (SELECT id FROM profiles p JOIN auth.users u ON u.id::text = p.id WHERE u.email = $2)`,
+    [userId, ADMIN_EMAIL]
+  );
   return Response.json(result.rows);
 }
 
@@ -41,7 +48,8 @@ export async function POST(request: Request, { userId }: { userId: string }) {
   );
   const pending = await db.query(
     `SELECT 1 FROM notifications
-     WHERE user_id = $1 AND type = 'support' AND is_read = false LIMIT 1`,
+     WHERE user_id = $1 AND type = 'support' AND is_read = false
+       AND created_at > now() - interval '1 minute' LIMIT 1`,
     [userId]
   );
   if (pending.rows.length === 0) {

@@ -300,6 +300,13 @@ export default function AdminReviewScreen() {
 
   const listToShow = activeTab === 'pending' ? pendingRecipes : allRecipes;
 
+  const tabs: { key: 'pending' | 'all' | 'reports' | 'deleted'; label: string; count: number }[] = [
+    { key: 'pending', label: t('admin_review_screen.tab_pending'), count: pendingRecipes.length },
+    { key: 'all', label: t('admin_review_screen.tab_all'), count: allRecipes.length },
+    { key: 'reports', label: t('admin_review_screen.tab_reports'), count: reportedRecipes.length },
+    { key: 'deleted', label: t('admin_review_screen.tab_deleted'), count: deletedRecipes.length },
+  ];
+
   return (
     <ScrollView
       style={[styles.container, { backgroundColor: colors.background }]}
@@ -311,64 +318,45 @@ export default function AdminReviewScreen() {
           <Ionicons name="chevron-back" size={24} color={colors.text} />
         </TouchableOpacity>
         <Text style={[styles.headerTitle, { color: colors.text }]}>{t('admin_review_screen.title')}</Text>
-        <View style={{ width: 40 }} />
       </View>
 
-      <View style={styles.tabRow}>
-        <TouchableOpacity
-          style={[styles.tabBtn, activeTab === 'pending' && styles.tabBtnActive]}
-          onPress={() => setActiveTab('pending')}
-          activeOpacity={0.8}
-        >
-          <Text style={[styles.tabText, activeTab === 'pending' && styles.tabTextActive]}>
-            {t('admin_review_screen.pending_tab', { count: pendingRecipes.length })}
-          </Text>
-        </TouchableOpacity>
-        <TouchableOpacity
-          style={[styles.tabBtn, activeTab === 'all' && styles.tabBtnActive]}
-          onPress={() => setActiveTab('all')}
-          activeOpacity={0.8}
-        >
-          <Text style={[styles.tabText, activeTab === 'all' && styles.tabTextActive]}>
-            {t('admin_review_screen.all_tab', { count: allRecipes.length })}
-          </Text>
-        </TouchableOpacity>
-        <TouchableOpacity
-          style={[styles.tabBtn, activeTab === 'reports' && styles.tabBtnActive]}
-          onPress={() => setActiveTab('reports')}
-          activeOpacity={0.8}
-        >
-          <Text style={[styles.tabText, activeTab === 'reports' && styles.tabTextActive]}>
-            {t('admin_review_screen.reports_tab', { count: reportedRecipes.length })}
-          </Text>
-        </TouchableOpacity>
-        <TouchableOpacity
-          style={[styles.tabBtn, activeTab === 'deleted' && styles.tabBtnActive]}
-          onPress={() => setActiveTab('deleted')}
-          activeOpacity={0.8}
-        >
-          <Text style={[styles.tabText, activeTab === 'deleted' && styles.tabTextActive]}>
-            {t('admin_review_screen.deleted_tab', { count: deletedRecipes.length })}
-          </Text>
-        </TouchableOpacity>
+      <View style={[styles.tabRow, { borderBottomColor: colors.border }]}>
+        {tabs.map((tb) => {
+          const active = activeTab === tb.key;
+          return (
+            <TouchableOpacity
+              key={tb.key}
+              style={[styles.tabBtn, active && styles.tabBtnActive]}
+              onPress={() => setActiveTab(tb.key)}
+              activeOpacity={0.7}
+            >
+              <Text
+                style={[styles.tabText, { color: active ? colors.text : colors.subtext }, active && styles.tabTextActive]}
+                numberOfLines={1}
+              >
+                {tb.label}
+              </Text>
+              <Text style={[styles.tabCount, { color: active ? RED : colors.subtext }]}>{tb.count}</Text>
+            </TouchableOpacity>
+          );
+        })}
       </View>
 
       {activeTab === 'reports' ? (
         reportedRecipes.length === 0 ? (
           <View style={styles.empty}>
-            <Ionicons name="checkmark-done-circle-outline" size={48} color={colors.subtext} />
             <Text style={[styles.emptyText, { color: colors.subtext }]}>
               {t('admin_review_screen.empty_reports')}
             </Text>
           </View>
         ) : (
           reportedRecipes.map((recipe) => (
-            <View key={recipe.id} style={[styles.card, { backgroundColor: colors.card }]}>
+            <View key={recipe.id} style={[styles.card, { backgroundColor: colors.card, borderColor: colors.border }]}>
               <View style={styles.cardHeader}>
                 {recipe.image_url ? (
                   <Image source={{ uri: recipe.image_url }} style={styles.thumb} contentFit="cover" />
                 ) : (
-                  <View style={[styles.thumb, styles.thumbFallback]}>
+                  <View style={[styles.thumb, styles.thumbFallback, { backgroundColor: colors.input }]}>
                     <Ionicons name="restaurant-outline" size={22} color={colors.subtext} />
                   </View>
                 )}
@@ -379,26 +367,21 @@ export default function AdminReviewScreen() {
                   <Text style={[styles.cardMeta, { color: colors.subtext }]}>
                     {t('my_orders_screen.by_chef', { name: recipe.chef_name ?? t('admin_review_screen.unknown_chef') })}
                   </Text>
-                  <View style={styles.metaRow}>
-                    <View style={styles.similarityBadge}>
-                      <Ionicons name="flag" size={11} color="#fff" />
-                      <Text style={styles.statusBadgeText}>
-                        {t('admin_review_screen.report_count', { count: Number(recipe.report_count) })}
-                      </Text>
-                    </View>
-                  </View>
+                  <Text style={[styles.statusText, { color: RED }]}>
+                    {t('admin_review_screen.report_count', { count: Number(recipe.report_count) })}
+                  </Text>
                 </View>
-                <TouchableOpacity onPress={() => router.push(`/recipe/${recipe.id}` as any)}>
+                <TouchableOpacity onPress={() => router.push(`/recipe/${recipe.id}` as any)} hitSlop={10}>
                   <Ionicons name="eye-outline" size={20} color={colors.subtext} />
                 </TouchableOpacity>
               </View>
 
               {recipe.latest_reason && (
-                <View style={styles.reportReasonBox}>
-                  <Text style={styles.reportReasonLabel}>{t('admin_review_screen.report_reason_label')}</Text>
-                  <Text style={styles.reportReasonText}>“{recipe.latest_reason}”</Text>
+                <View style={[styles.noteBox, { backgroundColor: colors.input }]}>
+                  <Text style={[styles.noteLabel, { color: colors.subtext }]}>{t('admin_review_screen.report_reason_label')}</Text>
+                  <Text style={[styles.noteText, { color: colors.text }]}>{recipe.latest_reason}</Text>
                   {recipe.reasons.length > 1 && (
-                    <Text style={styles.reportReasonMore}>
+                    <Text style={[styles.noteMore, { color: colors.subtext }]}>
                       {t('admin_review_screen.report_reason_more', { count: recipe.reasons.length - 1 })}
                     </Text>
                   )}
@@ -407,20 +390,18 @@ export default function AdminReviewScreen() {
 
               <View style={styles.actionRow}>
                 <TouchableOpacity
-                  style={[styles.actionBtn, styles.rejectBtn, dismissingId === recipe.id && { opacity: 0.6 }]}
+                  style={[styles.actionBtn, styles.outlineBtn, { borderColor: colors.border }, dismissingId === recipe.id && { opacity: 0.6 }]}
                   onPress={() => runDismissReport(recipe.id)}
                   disabled={dismissingId === recipe.id}
                 >
-                  <Ionicons name="close" size={18} color={RED} />
-                  <Text style={styles.rejectBtnText}>{t('admin_review_screen.dismiss_report')}</Text>
+                  <Text style={[styles.outlineBtnText, { color: colors.text }]}>{t('admin_review_screen.dismiss_report')}</Text>
                 </TouchableOpacity>
                 <TouchableOpacity
-                  style={[styles.actionBtn, styles.deleteBtn, deletingId === recipe.id && { opacity: 0.6 }]}
+                  style={[styles.actionBtn, styles.outlineBtn, { borderColor: RED }, deletingId === recipe.id && { opacity: 0.6 }]}
                   onPress={() => openDeleteModal({ id: recipe.id, status: recipe.status, latest_reason: recipe.latest_reason })}
                   disabled={deletingId === recipe.id}
                 >
-                  <Ionicons name="trash-outline" size={18} color="#fff" />
-                  <Text style={styles.approveBtnText}>
+                  <Text style={[styles.outlineBtnText, { color: RED }]}>
                     {deletingId === recipe.id ? t('admin_review_screen.deleting') : t('admin_review_screen.delete_recipe')}
                   </Text>
                 </TouchableOpacity>
@@ -431,19 +412,18 @@ export default function AdminReviewScreen() {
       ) : activeTab === 'deleted' ? (
         deletedRecipes.length === 0 ? (
           <View style={styles.empty}>
-            <Ionicons name="checkmark-done-circle-outline" size={48} color={colors.subtext} />
             <Text style={[styles.emptyText, { color: colors.subtext }]}>
               {t('admin_review_screen.empty_deleted')}
             </Text>
           </View>
         ) : (
           deletedRecipes.map((recipe) => (
-            <View key={recipe.id} style={[styles.card, { backgroundColor: colors.card }]}>
+            <View key={recipe.id} style={[styles.card, { backgroundColor: colors.card, borderColor: colors.border }]}>
               <View style={styles.cardHeader}>
                 {recipe.image_url ? (
                   <Image source={{ uri: recipe.image_url }} style={[styles.thumb, { opacity: 0.5 }]} contentFit="cover" />
                 ) : (
-                  <View style={[styles.thumb, styles.thumbFallback]}>
+                  <View style={[styles.thumb, styles.thumbFallback, { backgroundColor: colors.input }]}>
                     <Ionicons name="restaurant-outline" size={22} color={colors.subtext} />
                   </View>
                 )}
@@ -454,20 +434,16 @@ export default function AdminReviewScreen() {
                   <Text style={[styles.cardMeta, { color: colors.subtext }]}>
                     {t('my_orders_screen.by_chef', { name: recipe.chef_name ?? t('admin_review_screen.unknown_chef') })}
                   </Text>
-                  <View style={styles.metaRow}>
-                    <View style={[styles.statusBadge, { backgroundColor: statusColor('deleted') }]}>
-                      <Text style={styles.statusBadgeText}>
-                        {t('admin_review_screen.purge_countdown', { count: daysLeft(recipe.deleted_at, recipe.restore_window_days) })}
-                      </Text>
-                    </View>
-                  </View>
+                  <Text style={[styles.statusText, { color: colors.subtext }]}>
+                    {t('admin_review_screen.purge_countdown', { count: daysLeft(recipe.deleted_at, recipe.restore_window_days) })}
+                  </Text>
                 </View>
               </View>
 
               {recipe.rejection_reason && (
-                <View style={styles.reportReasonBox}>
-                  <Text style={styles.reportReasonLabel}>{t('admin_review_screen.delete_reason_label')}</Text>
-                  <Text style={styles.reportReasonText}>“{recipe.rejection_reason}”</Text>
+                <View style={[styles.noteBox, { backgroundColor: colors.input }]}>
+                  <Text style={[styles.noteLabel, { color: colors.subtext }]}>{t('admin_review_screen.delete_reason_label')}</Text>
+                  <Text style={[styles.noteText, { color: colors.text }]}>{recipe.rejection_reason}</Text>
                 </View>
               )}
 
@@ -477,7 +453,6 @@ export default function AdminReviewScreen() {
                   onPress={() => runRestore(recipe.id)}
                   disabled={restoringId === recipe.id}
                 >
-                  <Ionicons name="refresh" size={18} color="#fff" />
                   <Text style={styles.approveBtnText}>
                     {restoringId === recipe.id ? t('admin_review_screen.working') : t('admin_review_screen.restore_recipe')}
                   </Text>
@@ -488,7 +463,6 @@ export default function AdminReviewScreen() {
         )
       ) : listToShow.length === 0 ? (
         <View style={styles.empty}>
-          <Ionicons name="checkmark-done-circle-outline" size={48} color={colors.subtext} />
           <Text style={[styles.emptyText, { color: colors.subtext }]}>
             {activeTab === 'pending' ? t('admin_review_screen.empty_pending') : t('admin_review_screen.empty_all')}
           </Text>
@@ -497,7 +471,7 @@ export default function AdminReviewScreen() {
         listToShow.map((recipe) => {
           const expanded = expandedId === recipe.id;
           return (
-            <View key={recipe.id} style={[styles.card, { backgroundColor: colors.card }]}>
+            <View key={recipe.id} style={[styles.card, { backgroundColor: colors.card, borderColor: colors.border }]}>
               <TouchableOpacity
                 style={styles.cardHeader}
                 onPress={() => setExpandedId(expanded ? null : recipe.id)}
@@ -506,7 +480,7 @@ export default function AdminReviewScreen() {
                 {recipe.image_url ? (
                   <Image source={{ uri: recipe.image_url }} style={styles.thumb} contentFit="cover" />
                 ) : (
-                  <View style={[styles.thumb, styles.thumbFallback]}>
+                  <View style={[styles.thumb, styles.thumbFallback, { backgroundColor: colors.input }]}>
                     <Ionicons name="restaurant-outline" size={22} color={colors.subtext} />
                   </View>
                 )}
@@ -515,32 +489,27 @@ export default function AdminReviewScreen() {
                     {recipe.title}
                   </Text>
                   <Text style={[styles.cardMeta, { color: colors.subtext }]}>
-                    {recipe.cuisine} • {t('my_orders_screen.by_chef', { name: recipe.chef_name ?? t('admin_review_screen.unknown_chef') })}
+                    {t('cuisines.' + recipe.cuisine, { defaultValue: recipe.cuisine })} • {t('my_orders_screen.by_chef', { name: recipe.chef_name ?? t('admin_review_screen.unknown_chef') })}
                   </Text>
                   <View style={styles.metaRow}>
-                    <Text style={[styles.cardMeta, { color: RED }]}>
+                    <Text style={[styles.statusText, { color: colors.text }]}>
                       {recipe.is_free ? t('admin_review_screen.free') : `$${Number(recipe.price_usd ?? 0).toFixed(2)}`}
                     </Text>
                     {activeTab === 'all' && (
-                      <View style={[styles.statusBadge, { backgroundColor: statusColor(recipe.status) }]}>
-                        <Text style={styles.statusBadgeText}>{statusLabel(recipe.status)}</Text>
-                      </View>
+                      <Text style={[styles.statusText, { color: statusColor(recipe.status) }]}>
+                        {statusLabel(recipe.status)}
+                      </Text>
                     )}
                     {!!recipe.possible_matches?.length ? (
-                      <View style={styles.similarityBadge}>
-                        <Ionicons name="warning" size={11} color="#fff" />
-                        <Text style={styles.statusBadgeText}>
-                          {t('admin_review_screen.possible_match_badge')} {Math.round(recipe.possible_matches[0].score * 100)}%
-                        </Text>
-                      </View>
+                      <Text style={[styles.statusText, { color: '#B36B00' }]}>
+                        {t('admin_review_screen.possible_match_badge')} {Math.round(recipe.possible_matches[0].score * 100)}%
+                      </Text>
                     ) : (
-                      <View style={[styles.similarityBadge, { backgroundColor: colors.border }]}>
-                        <Text style={[styles.statusBadgeText, { color: colors.subtext }]}>
-                          {t('admin_review_screen.similar_chip', {
-                            percent: Math.round((recipe.similar_recipes?.[0]?.score ?? 0) * 100),
-                          })}
-                        </Text>
-                      </View>
+                      <Text style={[styles.statusText, { color: colors.subtext }]}>
+                        {t('admin_review_screen.similar_chip', {
+                          percent: Math.round((recipe.similar_recipes?.[0]?.score ?? 0) * 100),
+                        })}
+                      </Text>
                     )}
                   </View>
                 </View>
@@ -557,19 +526,19 @@ export default function AdminReviewScreen() {
                     const flagged = !!recipe.possible_matches?.length;
                     const similar = recipe.similar_recipes ?? [];
                     return (
-                      <View style={[styles.similarityBox, !flagged && { backgroundColor: colors.border + '55' }]}>
-                        <Text style={[styles.similarityTitle, !flagged && { color: colors.text }]}>
+                      <View style={[styles.similarityBox, { backgroundColor: colors.input }]}>
+                        <Text style={[styles.similarityTitle, { color: flagged ? '#B36B00' : colors.text }]}>
                           {flagged
                             ? t('admin_review_screen.possible_match_title')
                             : t('admin_review_screen.closest_matches_title')}
                         </Text>
                         {similar.length === 0 ? (
-                          <Text style={[styles.similarityText, !flagged && { color: colors.subtext }]}>
+                          <Text style={[styles.similarityText, { color: colors.subtext }]}>
                             {t('admin_review_screen.no_similar')}
                           </Text>
                         ) : (
                           similar.map((m) => (
-                            <Text key={m.id} style={[styles.similarityText, !flagged && { color: colors.subtext }]}>
+                            <Text key={m.id} style={[styles.similarityText, { color: colors.subtext }]}>
                               {t('admin_review_screen.possible_match_line', {
                                 percent: Math.round(m.score * 100),
                                 title: m.title,
@@ -597,19 +566,17 @@ export default function AdminReviewScreen() {
               {activeTab === 'pending' ? (
                 <View style={styles.actionRow}>
                   <TouchableOpacity
-                    style={[styles.actionBtn, styles.rejectBtn]}
+                    style={[styles.actionBtn, styles.outlineBtn, { borderColor: colors.border }]}
                     onPress={() => openRejectModal(recipe.id)}
                     disabled={actingId === recipe.id}
                   >
-                    <Ionicons name="close" size={18} color={RED} />
-                    <Text style={styles.rejectBtnText}>{t('admin_review_screen.reject')}</Text>
+                    <Text style={[styles.outlineBtnText, { color: colors.text }]}>{t('admin_review_screen.reject')}</Text>
                   </TouchableOpacity>
                   <TouchableOpacity
                     style={[styles.actionBtn, styles.approveBtn, actingId === recipe.id && { opacity: 0.6 }]}
                     onPress={() => handleReview(recipe.id, 'approve')}
                     disabled={actingId === recipe.id}
                   >
-                    <Ionicons name="checkmark" size={18} color="#fff" />
                     <Text style={styles.approveBtnText}>
                       {actingId === recipe.id ? t('admin_review_screen.working') : t('admin_review_screen.approve')}
                     </Text>
@@ -618,12 +585,11 @@ export default function AdminReviewScreen() {
               ) : (
                 <View style={styles.actionRow}>
                   <TouchableOpacity
-                    style={[styles.actionBtn, styles.deleteBtn, deletingId === recipe.id && { opacity: 0.6 }]}
+                    style={[styles.actionBtn, styles.outlineBtn, { borderColor: RED }, deletingId === recipe.id && { opacity: 0.6 }]}
                     onPress={() => openDeleteModal(recipe)}
                     disabled={deletingId === recipe.id}
                   >
-                    <Ionicons name="trash-outline" size={18} color="#fff" />
-                    <Text style={styles.approveBtnText}>
+                    <Text style={[styles.outlineBtnText, { color: RED }]}>
                       {deletingId === recipe.id ? t('admin_review_screen.deleting') : t('admin_review_screen.delete_recipe')}
                     </Text>
                   </TouchableOpacity>
@@ -729,58 +695,57 @@ const styles = StyleSheet.create({
   container: { flex: 1 },
   center: { flex: 1, justifyContent: 'center', alignItems: 'center', gap: 12, paddingHorizontal: 40 },
   deniedText: { fontSize: 14, textAlign: 'center' },
-  deniedBtn: { marginTop: 8, paddingHorizontal: 20, paddingVertical: 10, borderRadius: 12, backgroundColor: RED },
-  deniedBtnText: { color: '#fff', fontWeight: '700' },
-  headerRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 12, marginBottom: 16 },
+  deniedBtn: { marginTop: 8, paddingHorizontal: 20, paddingVertical: 10, borderRadius: 6, backgroundColor: RED },
+  deniedBtnText: { color: '#fff', fontWeight: '600' },
+  headerRow: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 12, marginBottom: 12 },
   backBtn: { width: 40, height: 40, alignItems: 'center', justifyContent: 'center' },
-  headerTitle: { fontSize: 18, fontWeight: '700' },
-  tabRow: { flexDirection: 'row', gap: 8, marginHorizontal: 20, marginBottom: 16, backgroundColor: 'rgba(150,150,150,0.12)', borderRadius: 12, padding: 4 },
-  tabBtn: { flex: 1, paddingVertical: 9, borderRadius: 9, alignItems: 'center' },
-  tabBtnActive: { backgroundColor: RED },
-  tabText: { fontSize: 13, fontWeight: '600', color: '#888' },
-  tabTextActive: { color: '#fff' },
-  empty: { alignItems: 'center', justifyContent: 'center', gap: 12, marginTop: 80, paddingHorizontal: 40 },
+  headerTitle: { fontSize: 20, fontWeight: '700', marginLeft: 4 },
+  // Four equal columns on one underline: fits any phone width with no wrapping.
+  tabRow: { flexDirection: 'row', marginHorizontal: 20, marginBottom: 16, borderBottomWidth: 1 },
+  tabBtn: { flex: 1, alignItems: 'center', paddingTop: 6, paddingBottom: 10, borderBottomWidth: 2, borderBottomColor: 'transparent', marginBottom: -1 },
+  tabBtnActive: { borderBottomColor: RED },
+  tabText: { fontSize: 14, fontWeight: '500' },
+  tabTextActive: { fontWeight: '700' },
+  tabCount: { fontSize: 12, fontWeight: '600', marginTop: 2 },
+  empty: { alignItems: 'center', justifyContent: 'center', marginTop: 60, paddingHorizontal: 40 },
   emptyText: { fontSize: 14, textAlign: 'center' },
-  card: { marginHorizontal: 20, marginBottom: 14, borderRadius: 16, padding: 14 },
+  card: { marginHorizontal: 20, marginBottom: 12, borderRadius: 8, padding: 14, borderWidth: 1 },
   cardHeader: { flexDirection: 'row', alignItems: 'center', gap: 12 },
-  thumb: { width: 56, height: 56, borderRadius: 12 },
-  thumbFallback: { alignItems: 'center', justifyContent: 'center', backgroundColor: '#F0F0F0' },
-  cardTitle: { fontSize: 15, fontWeight: '700', marginBottom: 2 },
-  cardMeta: { fontSize: 12, marginBottom: 1 },
-  metaRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  statusBadge: { paddingHorizontal: 8, paddingVertical: 2, borderRadius: 8 },
-  statusBadgeText: { fontSize: 10, fontWeight: '700', color: '#fff' },
-  similarityBadge: { flexDirection: 'row', alignItems: 'center', gap: 4, paddingHorizontal: 8, paddingVertical: 2, borderRadius: 8, backgroundColor: '#B36B00' },
-  similarityBox: { backgroundColor: 'rgba(179,107,0,0.12)', borderRadius: 10, padding: 10, marginBottom: 10, gap: 4 },
-  similarityTitle: { fontSize: 12.5, fontWeight: '700', color: '#B36B00', marginBottom: 2 },
-  similarityText: { fontSize: 12, lineHeight: 17, color: '#8A5200' },
-  reportReasonBox: { backgroundColor: 'rgba(214,40,40,0.08)', borderRadius: 10, padding: 10, marginTop: 12 },
-  reportReasonLabel: { fontSize: 11, fontWeight: '700', color: RED, textTransform: 'uppercase', letterSpacing: 0.4, marginBottom: 3 },
-  reportReasonText: { fontSize: 13, lineHeight: 18, color: '#5A1616', fontStyle: 'italic' },
-  reportReasonMore: { fontSize: 11.5, color: '#8A5200', marginTop: 4 },
-  detailBlock: { marginTop: 14, paddingTop: 14, borderTopWidth: 1, borderTopColor: 'rgba(0,0,0,0.08)' },
-  detailLabel: { fontSize: 13, fontWeight: '700', marginBottom: 4, marginTop: 8 },
+  thumb: { width: 60, height: 60, borderRadius: 6 },
+  thumbFallback: { alignItems: 'center', justifyContent: 'center' },
+  cardTitle: { fontSize: 16, fontWeight: '600', marginBottom: 2 },
+  cardMeta: { fontSize: 13, marginBottom: 2 },
+  metaRow: { flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', columnGap: 12, rowGap: 2 },
+  statusText: { fontSize: 13, fontWeight: '600' },
+  similarityBox: { borderRadius: 6, padding: 10, marginBottom: 10, gap: 4 },
+  similarityTitle: { fontSize: 13, fontWeight: '600', marginBottom: 2 },
+  similarityText: { fontSize: 12.5, lineHeight: 18 },
+  noteBox: { borderRadius: 6, padding: 10, marginTop: 12 },
+  noteLabel: { fontSize: 12, fontWeight: '600', marginBottom: 3 },
+  noteText: { fontSize: 14, lineHeight: 20 },
+  noteMore: { fontSize: 12, marginTop: 4 },
+  detailBlock: { marginTop: 14, paddingTop: 14, borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: 'rgba(128,128,128,0.4)' },
+  detailLabel: { fontSize: 13, fontWeight: '600', marginBottom: 4, marginTop: 8 },
   detailText: { fontSize: 13, lineHeight: 19 },
   actionRow: { flexDirection: 'row', gap: 10, marginTop: 14 },
-  actionBtn: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, paddingVertical: 11, borderRadius: 12 },
-  rejectBtn: { borderWidth: 1.5, borderColor: RED },
-  rejectBtnText: { color: RED, fontWeight: '700', fontSize: 14 },
+  actionBtn: { flex: 1, alignItems: 'center', justifyContent: 'center', height: 42, borderRadius: 6 },
+  outlineBtn: { borderWidth: 1 },
+  outlineBtnText: { fontWeight: '600', fontSize: 14 },
   approveBtn: { backgroundColor: RED },
-  approveBtnText: { color: '#fff', fontWeight: '700', fontSize: 14 },
-  deleteBtn: { backgroundColor: '#8B1A1A' },
+  approveBtnText: { color: '#fff', fontWeight: '600', fontSize: 14 },
   modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', alignItems: 'center', padding: 24 },
-  modalCard: { width: '100%', maxWidth: 380, borderRadius: 20, padding: 22 },
+  modalCard: { width: '100%', maxWidth: 380, borderRadius: 8, padding: 20 },
   modalTitle: { fontSize: 17, fontWeight: '700', marginBottom: 4 },
-  modalSubtitle: { fontSize: 12.5, marginBottom: 16, lineHeight: 17 },
+  modalSubtitle: { fontSize: 13, marginBottom: 16, lineHeight: 18 },
   reasonRow: { flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 12 },
-  radio: { width: 20, height: 20, borderRadius: 10, borderWidth: 1.5, borderColor: '#D0D0D0', alignItems: 'center', justifyContent: 'center' },
+  radio: { width: 20, height: 20, borderRadius: 10, borderWidth: 1.5, borderColor: '#BDBDBD', alignItems: 'center', justifyContent: 'center' },
   radioSelected: { borderColor: RED },
   radioDot: { width: 10, height: 10, borderRadius: 5, backgroundColor: RED },
-  reasonText: { fontSize: 13.5, flex: 1 },
-  customInput: { borderWidth: 1.5, borderRadius: 12, padding: 12, fontSize: 13.5, minHeight: 60, textAlignVertical: 'top', marginBottom: 6, marginTop: 2 },
+  reasonText: { fontSize: 14, flex: 1 },
+  customInput: { borderWidth: 1, borderRadius: 6, padding: 12, fontSize: 14, minHeight: 60, textAlignVertical: 'top', marginBottom: 6, marginTop: 2 },
   modalBtnRow: { flexDirection: 'row', gap: 10, marginTop: 14 },
-  modalCancelBtn: { flex: 1, paddingVertical: 13, borderRadius: 12, alignItems: 'center' },
+  modalCancelBtn: { flex: 1, height: 42, borderRadius: 6, alignItems: 'center', justifyContent: 'center' },
   modalCancelText: { fontSize: 14, fontWeight: '600' },
-  modalConfirmBtn: { flex: 1, paddingVertical: 13, borderRadius: 12, alignItems: 'center', backgroundColor: RED },
-  modalConfirmText: { color: '#fff', fontSize: 14, fontWeight: '700' },
+  modalConfirmBtn: { flex: 1, height: 42, borderRadius: 6, alignItems: 'center', justifyContent: 'center', backgroundColor: RED },
+  modalConfirmText: { color: '#fff', fontSize: 14, fontWeight: '600' },
 });

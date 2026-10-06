@@ -20,6 +20,12 @@ export async function GET(request: Request) {
      WHERE user_id = $1 AND sender = 'admin' AND read_by_user = false`,
     [session.user.id]
   );
+  // Seeing the reply in the chat counts as reading its notification.
+  await db.query(
+    `UPDATE notifications SET is_read = true
+     WHERE user_id = $1 AND type = 'support' AND is_read = false`,
+    [session.user.id]
+  );
   return Response.json(result.rows);
 }
 
@@ -42,6 +48,7 @@ export async function POST(request: Request) {
     `SELECT 1 FROM notifications n
      JOIN auth.users u ON u.id::text = n.user_id AND u.email = $1
      WHERE n.type = 'support' AND n.is_read = false AND n.params->>'userId' = $2
+       AND n.created_at > now() - interval '1 minute'
      LIMIT 1`,
     [ADMIN_EMAIL, session.user.id]
   );

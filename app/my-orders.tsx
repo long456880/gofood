@@ -128,7 +128,7 @@ export default function MyOrdersScreen() {
                 {order.title}
               </Text>
               <Text style={[styles.cardMeta, { color: colors.subtext }]}>
-                {order.cuisine}{order.chef_name ? ` • ${t('my_orders_screen.by_chef', { name: order.chef_name })}` : ''}
+                {t('cuisines.' + order.cuisine, { defaultValue: order.cuisine })}{order.chef_name ? ` • ${t('my_orders_screen.by_chef', { name: order.chef_name })}` : ''}
               </Text>
               <Text style={[styles.cardDate, { color: colors.subtext }]}>
                 {formatDate(order.unlocked_at)}

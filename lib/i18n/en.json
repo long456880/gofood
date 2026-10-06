@@ -1,5 +1,6 @@
 {
   "home": {
+    "new_recipe": "New",
     "greeting_morning": "Good Morning",
     "greeting_afternoon": "Good Afternoon",
     "greeting_evening": "Good Evening",
@@ -369,6 +370,10 @@
     "all_tab": "All Recipes ({{count}})",
     "reports_tab": "Reports ({{count}})",
     "deleted_tab": "Deleted ({{count}})",
+    "tab_pending": "Pending",
+    "tab_all": "All",
+    "tab_reports": "Reports",
+    "tab_deleted": "Deleted",
     "empty_pending": "No recipes waiting for review right now.",
     "empty_all": "No recipes found.",
     "empty_reports": "No reported recipes right now.",

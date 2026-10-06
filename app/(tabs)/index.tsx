@@ -132,7 +132,7 @@ function FeaturedCard({ recipe }: { recipe: Recipe }) {
         </View>
         <Text style={styles.featuredTitle} numberOfLines={1}>{recipe.title}</Text>
         <View style={styles.featuredBottomRow}>
-          <Text style={styles.featuredCuisine}>{recipe.cuisine}</Text>
+          <Text style={styles.featuredCuisine}>{t('cuisines.' + recipe.cuisine, { defaultValue: recipe.cuisine })}</Text>
           <View style={styles.featuredCta}>
             <Text style={styles.featuredCtaText}>{t('recipe_detail_screen.view_recipe')}</Text>
             <Ionicons name="arrow-forward" size={13} color={RED} />
@@ -202,17 +202,17 @@ function RecipeCard({
           {item.title}
         </Text>
         <View style={styles.recipeCardMetaRow}>
-          <Text style={[styles.recipeCardCuisine, { color: RED }]} numberOfLines={1}>{item.cuisine}</Text>
+          <Text style={[styles.recipeCardCuisine, { color: RED }]} numberOfLines={1}>{t('cuisines.' + item.cuisine, { defaultValue: item.cuisine })}</Text>
           <View style={styles.ratingRow}>
             <Ionicons name="star" size={11} color="#F5A623" />
             <Text style={[styles.ratingText, { color: colors.subtext }]}>
-              {ratingCount > 0 ? avgRating.toFixed(1) : 'New'}
+              {ratingCount > 0 ? avgRating.toFixed(1) : t('home.new_recipe')}
             </Text>
           </View>
         </View>
         {item.chef_name && (
           <Text style={[styles.recipeCardChef, { color: colors.subtext }]} numberOfLines={1}>
-            by {item.chef_name}
+            {t('my_orders_screen.by_chef', { name: item.chef_name })}
           </Text>
         )}
       </View>

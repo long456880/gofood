@@ -1,5 +1,6 @@
 {
   "home": {
+    "new_recipe": "ថ្មី",
     "greeting_morning": "អរុណសួស្តី",
     "greeting_afternoon": "ទិវាសួស្តី",
     "greeting_evening": "សាយណ្ហសួស្តី",
@@ -368,6 +369,10 @@
     "all_tab": "រូបមន្តទាំងអស់ ({{count}})",
     "reports_tab": "ការរាយការណ៍ ({{count}})",
     "deleted_tab": "បានលុប ({{count}})",
+    "tab_pending": "កំពុងរង់ចាំ",
+    "tab_all": "ទាំងអស់",
+    "tab_reports": "រាយការណ៍",
+    "tab_deleted": "បានលុប",
     "empty_pending": "មិនមានរូបមន្តណាកំពុងរង់ចាំការត្រួតពិនិត្យទេឥឡូវនេះ។",
     "empty_all": "រកមិនឃើញរូបមន្តទេ។",
     "empty_reports": "មិនមានរូបមន្តត្រូវបានរាយការណ៍ទេឥឡូវនេះ។",

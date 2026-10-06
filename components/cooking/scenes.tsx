@@ -1028,7 +1028,9 @@ export function SeasonScene({ ingredients }: SceneProps) {
     const t = p.value;
     const shake = Math.sin(seg(t, 0.1, 0.7) * Math.PI * 6) * bell(t, 0.05, 0.8);
     return {
-      transform: [{ rotate: `${-22 + shake * 14}deg` }, { translateY: -shake * 2 }],
+      // The shaker art has its cap at the top, so it's flipped ~180° to pour
+      // the salt down onto the food, tilted 22° and shaken around that.
+      transform: [{ rotate: `${158 + shake * 14}deg` }, { translateY: shake * 2 }],
     };
   });
 
@@ -1047,7 +1049,7 @@ export function SeasonScene({ ingredients }: SceneProps) {
         <Grain key={i} p={p} index={i} />
       ))}
 
-      <Animated.View style={[{ position: 'absolute', left: 62, top: 20 }, shaker]}>
+      <Animated.View style={[{ position: 'absolute', left: 62, top: 8 }, shaker]}>
         <Shaker />
       </Animated.View>
 

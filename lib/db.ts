@@ -9,12 +9,22 @@ import { Pool } from "pg";
 // defense.
 const globalForDb = globalThis as unknown as { __gofoodDbPool?: Pool };
 
-export const db =
-  globalForDb.__gofoodDbPool ??
-  new Pool({
+function createPool() {
+  const pool = new Pool({
     connectionString: process.env.DATABASE_URL,
     max: 3,
+    keepAlive: true,
   });
+  // Supabase's pooler drops idle connections (ECONNRESET). Without a listener,
+  // the pool's 'error' event is unhandled and takes down the whole server.
+  // The pool discards the dead client and opens a fresh one on the next query.
+  pool.on("error", (err) => {
+    console.warn("[db] idle connection dropped:", err.message);
+  });
+  return pool;
+}
+
+export const db = globalForDb.__gofoodDbPool ?? createPool();
 
 if (process.env.NODE_ENV !== "production") {
   globalForDb.__gofoodDbPool = db;

@@ -463,7 +463,7 @@ export default function RecipeDetailScreen() {
       {/* Content */}
       <View style={[styles.content, { backgroundColor: dark ? colors.background : WARM_BG }]}>
         <View style={styles.inlineBadges}>
-          <View style={styles.badge}><Text style={styles.badgeText}>{recipe.cuisine}</Text></View>
+          <View style={styles.badge}><Text style={styles.badgeText}>{t('cuisines.' + recipe.cuisine, { defaultValue: recipe.cuisine })}</Text></View>
           {recipe.is_free
             ? <View style={[styles.badge, { backgroundColor: '#2E7D32' }]}><Text style={styles.badgeText}>{t('recipe_detail_screen.free_badge')}</Text></View>
             : <View style={[styles.badge, { backgroundColor: RED }]}><Text style={styles.badgeText}>${Number(recipe.price_usd ?? 0).toFixed(2)}</Text></View>

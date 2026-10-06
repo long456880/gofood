@@ -30,7 +30,8 @@ export async function GET(request: Request) {
      LEFT JOIN profiles p ON p.id = r.chef_id
      WHERE r.status = 'approved' AND r.is_free = false
      GROUP BY r.id, p.username
-     ORDER BY gross_revenue DESC
+     HAVING COUNT(u.id) > 0
+     ORDER BY sales_count DESC, gross_revenue DESC
      LIMIT 10`
   );
 
