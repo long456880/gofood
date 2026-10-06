@@ -1,8 +1,23 @@
-# Welcome to your Expo app 👋
+# GoFood
 
-This is an [Expo](https://expo.dev) project created with [`create-expo-app`](https://www.npmjs.com/package/create-expo-app).
+A recipe app for home cooks and chefs, in **English and Khmer**. Cooks browse recipes by cuisine and category, follow step-by-step cooking guides with animations and timers, and unlock premium recipes by paying through Bakong KHQR. Chefs upload their own recipes and earn from sales. An admin reviews recipes and helps users.
 
-## Get started
+## Features
+
+- **Browse and search** recipes by cuisine and category, with favorites and ratings
+- **Cooking mode**: one step at a time, with ingredient highlights, cooking animations, plain-word explanations of hard cooking terms, and timers
+- **Free and paid recipes**: payment through Bakong KHQR; chefs receive 90% of each sale
+- **Chef tools**: upload recipes, see your recipes and sales
+- **Admin tools**: review and approve recipes, handle reports, restore deleted recipes, sales dashboard, support inbox
+- **Support chat**: users message the admin inside the app, with photos
+- **Notifications** in the app for purchases, approvals, reports and support replies
+- Sign in with email or Google, English/Khmer switch, light and dark mode
+
+## Tech
+
+Expo (React Native, Expo Router with API routes), Supabase (auth, Postgres, storage), Bakong KHQR for payments.
+
+## Run it
 
 1. Install dependencies
 
@@ -10,41 +25,20 @@ This is an [Expo](https://expo.dev) project created with [`create-expo-app`](htt
    npm install
    ```
 
-2. Start the app
+2. Create a `.env` file in the project root. Copy `.env.example` and fill in your own values (the real `.env` is private and is not in this repo).
+
+3. Start the server
 
    ```bash
    npx expo start
    ```
 
-In the output, you'll find options to open the app in a
+4. Open the app on a phone with [Expo Go](https://expo.dev/go) by scanning the QR code. The phone and the computer must be on the **same Wi-Fi**. If the venue Wi-Fi blocks devices, use a phone hotspot for both.
 
-- [development build](https://docs.expo.dev/develop/development-builds/introduction/)
-- [Android emulator](https://docs.expo.dev/workflow/android-studio-emulator/)
-- [iOS simulator](https://docs.expo.dev/workflow/ios-simulator/)
-- [Expo Go](https://expo.dev/go), a limited sandbox for trying out app development with Expo
+   To let phones on other networks connect, use `npx expo start --tunnel` instead.
 
-You can start developing by editing the files inside the **app** directory. This project uses [file-based routing](https://docs.expo.dev/router/introduction).
+The app loads its data through this server, so keep the terminal open while the app is in use.
 
-## Get a fresh project
+## Database
 
-When you're ready, run:
-
-```bash
-npm run reset-project
-```
-
-This command will move the starter code to the **app-example** directory and create a blank **app** directory where you can start developing.
-
-## Learn more
-
-To learn more about developing your project with Expo, look at the following resources:
-
-- [Expo documentation](https://docs.expo.dev/): Learn fundamentals, or go into advanced topics with our [guides](https://docs.expo.dev/guides).
-- [Learn Expo tutorial](https://docs.expo.dev/tutorial/introduction/): Follow a step-by-step tutorial where you'll create a project that runs on Android, iOS, and the web.
-
-## Join the community
-
-Join our community of developers creating universal apps.
-
-- [Expo on GitHub](https://github.com/expo/expo): View our open source platform and contribute.
-- [Discord community](https://chat.expo.dev): Chat with Expo users and ask questions.
+The Supabase database changes are in `supabase/migrations/`. The support chat uses the `support_messages` table.

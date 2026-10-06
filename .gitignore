@@ -49,3 +49,9 @@ app-example
 /brag-output/
 /.agents/
 /.claude/skills/
+
+# assistant tooling files (local only)
+/CLAUDE.md
+/AGENTS.md
+/skills-lock.json
+/.claude/
