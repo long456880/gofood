@@ -18,10 +18,9 @@
       --text: #1a1a1a;
       --sub: #666;
       --border: #ece6dc;
-      --cream: #fdf6e8;
     }
     @media (prefers-color-scheme: dark) {
-      :root { --bg: #121212; --card: #1c1c1c; --text: #f5f5f5; --sub: #a0a0a0; --border: #2a2a2a; --cream: #2a2418; }
+      :root { --bg: #121212; --card: #1c1c1c; --text: #f5f5f5; --sub: #a0a0a0; --border: #2a2a2a; }
     }
     * { box-sizing: border-box; }
     html { scroll-behavior: smooth; }
@@ -35,14 +34,13 @@
     .wrap { max-width: 960px; margin: 0 auto; padding: 0 20px; }
 
     /* Hero */
-    .hero { display: grid; gap: 40px; align-items: center; padding: 56px 0 40px; }
-    @media (min-width: 800px) { .hero { grid-template-columns: 1.1fr .9fr; } }
-    .brand { display: flex; align-items: center; gap: 12px; margin-bottom: 20px; }
-    .brand img { width: 52px; height: 52px; border-radius: 13px; box-shadow: 0 4px 12px rgba(0,0,0,.18); }
-    .brand span { font-size: 1.3rem; font-weight: 800; color: var(--red); }
-    h1 { font-size: clamp(2rem, 6vw, 3.1rem); line-height: 1.1; margin: 0 0 14px; }
+    .hero { text-align: center; padding: 56px 0 24px; }
+    .brand { display: inline-flex; align-items: center; gap: 12px; margin-bottom: 20px; }
+    .brand img { width: 56px; height: 56px; border-radius: 14px; box-shadow: 0 4px 12px rgba(0,0,0,.18); }
+    .brand span { font-size: 1.4rem; font-weight: 800; color: var(--red); }
+    h1 { font-size: clamp(2.1rem, 6vw, 3.3rem); line-height: 1.1; margin: 0 0 14px; }
     h1 em { font-style: normal; color: var(--red); }
-    .lead { color: var(--sub); font-size: 1.1rem; margin: 0 0 26px; max-width: 34ch; }
+    .lead { color: var(--sub); font-size: 1.1rem; margin: 0 auto 26px; max-width: 42ch; }
     .btn {
       display: inline-flex; align-items: center; gap: 10px;
       background: var(--red); color: #fff; text-decoration: none;
@@ -56,32 +54,59 @@
     .meta { color: var(--sub); font-size: .85rem; margin-top: 12px; }
     .meta a { color: inherit; }
 
-    /* Phone mockup */
-    .phone-wrap { display: flex; justify-content: center; }
-    .phone {
-      width: 250px; border-radius: 36px; padding: 10px;
-      background: #111; box-shadow: 0 24px 50px rgba(0,0,0,.28);
-    }
-    .screen { background: var(--bg); border-radius: 28px; overflow: hidden; padding: 18px 14px 16px; color: var(--text); }
-    .step-card { border: 1.5px solid var(--red); border-radius: 16px; padding: 12px; background: var(--card); }
-    .step-label { color: var(--red); font-weight: 800; font-size: .8rem; margin-bottom: 6px; }
-    .bars { display: flex; gap: 4px; margin-bottom: 12px; }
-    .bars i { flex: 1; height: 4px; border-radius: 2px; background: var(--red); }
-    .bars i:last-child { opacity: .25; }
-    .scene {
-      height: 110px; border-radius: 12px; background: var(--cream);
-      display: flex; align-items: flex-end; justify-content: center;
-      position: relative; overflow: hidden; margin-bottom: 10px;
-    }
-    .scene::after { content: ""; position: absolute; left: 0; right: 0; bottom: 0; height: 38%; background: #f0dfc2; }
-    .plate { position: relative; z-index: 1; width: 80px; height: 14px; border-radius: 50%; background: #fff; margin-bottom: 14px; box-shadow: 0 2px 4px rgba(0,0,0,.1); }
-    .food { position: absolute; z-index: 2; bottom: 24px; left: 50%; transform: translateX(-50%); width: 48px; height: 26px; border-radius: 50%; background: #de8a3c; border: 2px solid #2b1a0e; }
-    .pill { display: inline-block; background: #fdebd0; color: #7a4a10; font-size: .7rem; font-weight: 700; padding: 4px 10px; border-radius: 20px; margin-bottom: 8px; }
-    .step-text { font-size: .8rem; margin: 0 0 12px; }
-    .step-text b { color: var(--red); }
-    .fake-btns { display: flex; gap: 8px; }
-    .fake-btns span { flex: 1; text-align: center; font-size: .75rem; font-weight: 700; padding: 8px 0; border-radius: 10px; border: 1.5px solid var(--red); color: var(--red); }
-    .fake-btns span:last-child { background: var(--red); color: #fff; }
+    /* Phone mockups (always light, like the app) */
+    .phones { display: flex; gap: 24px; justify-content: center; flex-wrap: wrap; padding: 24px 0 8px; }
+    .phone-col { text-align: center; }
+    .phone-col p { margin: 12px 0 0; font-weight: 700; }
+    .phone { width: 230px; border-radius: 34px; padding: 9px; background: #111; box-shadow: 0 20px 44px rgba(0,0,0,.28); }
+    .screen { height: 440px; background: #faf7f2; border-radius: 26px; overflow: hidden; padding: 16px 12px 0; color: #1a1a1a; text-align: left; position: relative; font-size: 11px; }
+    .screen .tabbar { position: absolute; left: 0; right: 0; bottom: 0; height: 44px; background: #fff; border-top: 1px solid #ece6dc; display: flex; justify-content: space-around; align-items: center; font-size: 15px; }
+    .screen .tabbar .on { filter: none; }
+    .screen .tabbar span { opacity: .35; }
+    .screen .tabbar span.on { opacity: 1; }
+    .r { color: #d62828; }
+    .h-row { display: flex; justify-content: space-between; align-items: center; }
+    .h-hi { font-size: 13px; font-weight: 700; line-height: 1.2; }
+    .bell { width: 28px; height: 28px; border-radius: 50%; background: #fff; display: grid; place-items: center; box-shadow: 0 1px 4px rgba(0,0,0,.1); }
+    .search { margin-top: 10px; background: #fff; border-radius: 12px; padding: 9px 10px; color: #999; box-shadow: 0 1px 4px rgba(0,0,0,.06); }
+    .pick { margin-top: 10px; height: 92px; border-radius: 14px; background: linear-gradient(135deg, #d62828, #8e1616); color: #fff; padding: 10px; position: relative; overflow: hidden; }
+    .pick .tag { display: inline-block; font-size: 9px; font-weight: 700; background: rgba(255,255,255,.22); border-radius: 10px; padding: 2px 7px; }
+    .pick b { display: block; font-size: 14px; margin-top: 6px; }
+    .pick small { opacity: .85; }
+    .pick .big { position: absolute; right: -6px; bottom: -10px; font-size: 56px; }
+    .sec { display: flex; align-items: center; gap: 6px; margin: 12px 0 6px; font-weight: 800; font-size: 12px; }
+    .sec i { width: 3px; height: 12px; border-radius: 2px; background: #d62828; }
+    .pills { display: flex; gap: 5px; overflow: hidden; }
+    .pills span { background: #fff; border: 1px solid #ece6dc; border-radius: 14px; padding: 4px 8px; font-weight: 600; white-space: nowrap; }
+    .pills span.on { background: #d62828; border-color: #d62828; color: #fff; }
+    .cards { display: flex; gap: 8px; }
+    .rc { flex: 1; background: #fff; border-radius: 12px; overflow: hidden; box-shadow: 0 1px 5px rgba(0,0,0,.08); }
+    .rc .img { height: 56px; display: grid; place-items: center; font-size: 30px; position: relative; }
+    .rc .img em { position: absolute; top: 4px; left: 4px; background: #2e7d32; color: #fff; font-style: normal; font-size: 8px; font-weight: 700; padding: 1px 5px; border-radius: 8px; }
+    .rc .img u { position: absolute; top: 3px; right: 5px; text-decoration: none; font-size: 11px; }
+    .rc .tx { padding: 5px 7px 7px; }
+    .rc .tx b { display: block; font-size: 11px; }
+    .rc .tx small { color: #888; font-size: 9px; }
+    .bg1 { background: #fde8c8; } .bg2 { background: #e5f0d8; } .bg3 { background: #fbdada; } .bg4 { background: #e6e3f7; }
+
+    .p-top { text-align: center; padding-top: 8px; }
+    .avatar { width: 62px; height: 62px; border-radius: 50%; background: #d62828; color: #fff; font-size: 26px; font-weight: 800; display: grid; place-items: center; margin: 0 auto 8px; }
+    .p-top b { font-size: 14px; display: block; }
+    .p-top small { color: #888; }
+    .edit { display: inline-block; margin-top: 8px; border: 1.5px solid #d62828; color: #d62828; border-radius: 14px; padding: 4px 14px; font-weight: 700; }
+    .menu { margin-top: 14px; background: #fff; border-radius: 14px; box-shadow: 0 1px 5px rgba(0,0,0,.06); }
+    .menu div { display: flex; align-items: center; gap: 9px; padding: 10px 12px; border-bottom: 1px solid #f1ece3; font-weight: 600; }
+    .menu div:last-child { border-bottom: 0; }
+    .menu span.chev { margin-left: auto; color: #bbb; }
+    .signout { margin-top: 12px; text-align: center; color: #d62828; font-weight: 700; }
+
+    .f-title { font-size: 16px; font-weight: 800; margin: 6px 0 4px; }
+    .f-h { font-weight: 800; color: #d62828; margin: 10px 0 6px; }
+    .f-row { background: #fff; border-radius: 12px; padding: 7px; display: flex; gap: 9px; align-items: center; margin-bottom: 8px; box-shadow: 0 1px 5px rgba(0,0,0,.07); }
+    .f-row .th { width: 46px; height: 46px; border-radius: 10px; display: grid; place-items: center; font-size: 24px; flex: none; }
+    .f-row b { display: block; font-size: 11.5px; }
+    .f-row small { color: #888; font-size: 9.5px; }
+    .f-row .heart { margin-left: auto; color: #d62828; font-size: 14px; }
 
     /* Sections */
     section { padding: 36px 0; }
@@ -94,19 +119,8 @@
     .feature h3 { margin: 8px 0 4px; font-size: 1.05rem; }
     .feature p { margin: 0; color: var(--sub); font-size: .95rem; }
 
-    /* Download block */
-    .download {
-      background: var(--card); border: 1px solid var(--border); border-radius: 24px;
-      padding: 32px 22px; display: grid; gap: 28px; align-items: center; text-align: center;
-    }
-    @media (min-width: 720px) { .download { grid-template-columns: 1fr auto; text-align: left; padding: 36px; } }
-    .download h2 { text-align: inherit; }
-    .download .sub { text-align: inherit; margin-left: 0; }
-    ol { margin: 14px 0 0; padding-left: 20px; display: grid; gap: 6px; text-align: left; color: var(--sub); }
-    .qr { display: none; text-align: center; }
-    @media (min-width: 720px) { .qr { display: block; } }
-    .qr img { width: 170px; height: 170px; border-radius: 12px; border: 1px solid var(--border); background: #fff; }
-    .qr small { display: block; color: var(--sub); margin-top: 6px; font-size: .8rem; }
+    .download { background: var(--card); border: 1px solid var(--border); border-radius: 24px; padding: 34px 22px; text-align: center; }
+    ol { margin: 18px auto 0; padding-left: 20px; display: grid; gap: 6px; text-align: left; color: var(--sub); max-width: 420px; }
 
     footer { color: var(--sub); font-size: .8rem; text-align: center; padding: 20px 0 40px; }
     footer a { color: var(--sub); }
@@ -115,32 +129,75 @@
 <body>
   <main class="wrap">
     <header class="hero">
-      <div>
-        <div class="brand"><img src="icon.png" alt="GoFood icon" /><span>GoFood</span></div>
-        <h1>Recipes you can <em>watch happen.</em></h1>
-        <p class="lead">GoFood doesn't just tell you to chop the onion. It shows you, one illustrated step at a time, in English or Khmer.</p>
-        <a class="btn" href="https://github.com/long456880/gofood/releases/latest/download/gofood.apk">
-          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v10.6l3.3-3.3 1.4 1.4L12 16.4 7.3 11.7l1.4-1.4L11 13.6V3h1zM5 18h14v2H5z"/></svg>
-          Download for Android
-        </a>
-        <p class="meta">Free · Android APK · <a href="https://github.com/long456880/gofood/releases/latest">All versions</a></p>
+      <div class="brand"><img src="icon.png" alt="GoFood icon" /><span>GoFood</span></div>
+      <h1>Recipes you can <em>watch happen.</em></h1>
+      <p class="lead">GoFood doesn't just tell you to chop the onion. It shows you, one illustrated step at a time, in English or Khmer.</p>
+      <a class="btn" href="https://github.com/long456880/gofood/releases/latest/download/gofood.apk">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v10.6l3.3-3.3 1.4 1.4L12 16.4 7.3 11.7l1.4-1.4L11 13.6V3h1zM5 18h14v2H5z"/></svg>
+        Download for Android
+      </a>
+      <p class="meta">Free · Android APK · <a href="https://github.com/long456880/gofood/releases/latest">All versions</a></p>
+    </header>
+
+    <div class="phones" aria-label="Preview of the GoFood app screens">
+      <!-- Home -->
+      <div class="phone-col">
+        <div class="phone"><div class="screen">
+          <div class="h-row">
+            <div class="h-hi">Good Afternoon,<br><span class="r">Chef</span></div>
+            <div class="bell">🔔</div>
+          </div>
+          <div class="search">🔍 Search recipes...</div>
+          <div class="pick"><span class="tag">Chef's Pick</span><b>Kimchi Fried Rice</b><small>Korean</small><span class="big">🍳</span></div>
+          <div class="sec"><i></i>Explore by Cuisine</div>
+          <div class="pills"><span class="on">Korean</span><span>Khmer</span><span>Italian</span><span>Chinese</span></div>
+          <div class="sec"><i></i>Free Recipes</div>
+          <div class="cards">
+            <div class="rc"><div class="img bg1"><em>FREE</em><u>🤍</u>🍜</div><div class="tx"><b>Noodle Soup</b><small>Chinese · ★ 4.8</small></div></div>
+            <div class="rc"><div class="img bg2"><em>FREE</em><u>❤️</u>🥗</div><div class="tx"><b>Green Salad</b><small>French · New</small></div></div>
+          </div>
+          <div class="tabbar"><span class="on">🏠</span><span>❤️</span><span>🪙</span><span>👤</span></div>
+        </div></div>
+        <p>Home</p>
       </div>
 
-      <div class="phone-wrap" aria-hidden="true">
-        <div class="phone">
-          <div class="screen">
-            <div class="step-card">
-              <div class="step-label">Step 4 of 4</div>
-              <div class="bars"><i></i><i></i><i></i><i></i></div>
-              <div class="scene"><div class="food"></div><div class="plate"></div></div>
-              <span class="pill">Follow the step below</span>
-              <p class="step-text">4. Arrange everything over <b>rice</b> and top with <b>gochujang</b>.</p>
-              <div class="fake-btns"><span>Back</span><span>Finish!</span></div>
-            </div>
+      <!-- Profile -->
+      <div class="phone-col">
+        <div class="phone"><div class="screen">
+          <div class="p-top">
+            <div class="avatar">C</div>
+            <b>Chef Sophea</b>
+            <small>sophea@example.com</small><br>
+            <span class="edit">Edit Profile</span>
           </div>
-        </div>
+          <div class="menu">
+            <div>❤️ Favorite Recipes <span class="chev">›</span></div>
+            <div>🧾 My Orders <span class="chev">›</span></div>
+            <div>🔔 Notifications <span class="chev">›</span></div>
+            <div>🌙 Dark Mode <span class="chev">›</span></div>
+            <div>💬 Contact Support <span class="chev">›</span></div>
+          </div>
+          <div class="signout">Sign Out</div>
+          <div class="tabbar"><span>🏠</span><span>❤️</span><span>🪙</span><span class="on">👤</span></div>
+        </div></div>
+        <p>Profile</p>
       </div>
-    </header>
+
+      <!-- Favorites -->
+      <div class="phone-col">
+        <div class="phone"><div class="screen">
+          <div class="f-title">Favorites</div>
+          <div class="f-h">Korean</div>
+          <div class="f-row"><div class="th bg1">🍳</div><div><b>Kimchi Fried Rice</b><small>Korean · ★ 4.9 · by Chef</small></div><span class="heart">❤️</span></div>
+          <div class="f-row"><div class="th bg3">🍲</div><div><b>Spicy Stew</b><small>Korean · New · by Chef</small></div><span class="heart">❤️</span></div>
+          <div class="f-h">Chinese</div>
+          <div class="f-row"><div class="th bg4">🍜</div><div><b>Noodle Soup</b><small>Chinese · ★ 4.8 · by Chef</small></div><span class="heart">❤️</span></div>
+          <div class="f-row"><div class="th bg2">🥟</div><div><b>Dumplings</b><small>Chinese · ★ 4.6 · by Chef</small></div><span class="heart">❤️</span></div>
+          <div class="tabbar"><span>🏠</span><span class="on">❤️</span><span>🪙</span><span>👤</span></div>
+        </div></div>
+        <p>Favorites</p>
+      </div>
+    </div>
 
     <section>
       <h2>Cook with confidence</h2>
@@ -157,23 +214,17 @@
 
     <section id="download">
       <div class="download">
-        <div>
-          <h2>Get the app</h2>
-          <p class="sub">Download the APK and install it in under a minute.</p>
-          <a class="btn" href="https://github.com/long456880/gofood/releases/latest/download/gofood.apk">
-            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v10.6l3.3-3.3 1.4 1.4L12 16.4 7.3 11.7l1.4-1.4L11 13.6V3h1zM5 18h14v2H5z"/></svg>
-            Download gofood.apk
-          </a>
-          <ol>
-            <li>Open the downloaded <strong>gofood.apk</strong> file.</li>
-            <li>If asked, allow <strong>Install unknown apps</strong> for your browser.</li>
-            <li>Tap <strong>Install</strong>, then open GoFood.</li>
-          </ol>
-        </div>
-        <div class="qr">
-          <img src="qr.png" alt="QR code linking to this page" />
-          <small>Scan to share this page</small>
-        </div>
+        <h2>Get the app</h2>
+        <p class="sub" style="margin-bottom:20px">Download the APK and install it in under a minute.</p>
+        <a class="btn" href="https://github.com/long456880/gofood/releases/latest/download/gofood.apk">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v10.6l3.3-3.3 1.4 1.4L12 16.4 7.3 11.7l1.4-1.4L11 13.6V3h1zM5 18h14v2H5z"/></svg>
+          Download gofood.apk
+        </a>
+        <ol>
+          <li>Open the downloaded <strong>gofood.apk</strong> file.</li>
+          <li>If asked, allow <strong>Install unknown apps</strong> for your browser.</li>
+          <li>Tap <strong>Install</strong>, then open GoFood.</li>
+        </ol>
       </div>
     </section>
 
